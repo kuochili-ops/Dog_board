@@ -2,81 +2,84 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>3D Doggy Pickup Simulation</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Doggy App Fixed</title>
     <style>
-        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background-color: #222; font-family: sans-serif; }
-        
-        /* 建立 3D 舞台 */
-        .stage { 
-            position: relative; width: 100%; height: 100%; 
+        body, html { 
+            margin: 0; padding: 0; width: 100%; height: 100%; 
+            background-color: #333; overflow: hidden; font-family: sans-serif;
+        }
+
+        /* 3D 容器 */
+        .stage {
+            position: relative; width: 100vw; height: 100vh;
             display: flex; justify-content: center; align-items: center;
-            perspective: 1200px; /* 賦予深度感 */
+            perspective: 1000px;
         }
 
-        /* 狗狗：支點設在腳部 */
-        .dog-sprite { 
-            width: 300px; height: 400px;
-            background: url('https://placehold.co/300x400/8b4513/white?text=DOG') no-repeat center; /* 請替換為你的 IMG_5730.png */
+        /* 狗狗圖片層 */
+        .dog-sprite {
+            width: 100%; height: auto; max-width: 500px;
+            /* 請確保 IMG_5730.png 與此檔在同目錄 */
+            background: url('IMG_5730.png') no-repeat center center;
             background-size: contain;
-            transform-origin: center 90%; 
-            transition: transform 0.6s ease-in-out;
-            z-index: 1;
+            aspect-ratio: 3/4; /* 根據你錄影中的狗狗比例調整 */
+            transform-origin: center 85%;
+            transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
-        /* 嘴巴掛點：緊貼狗狗頭部 */
+        /* 嘴巴掛點：我們改用百分比定位在狗狗臉部中央 */
         .mouth-anchor {
             position: absolute;
-            top: 45%; left: 50%;
+            top: 42%; left: 50%;
             transform: translateX(-50%);
-            z-index: 2;
-            transition: transform 0.6s ease-in-out;
-        }
-
-        /* 黑板：初始狀態「躺」在腳前 */
-        .pendant {
             display: flex; flex-direction: column; align-items: center;
-            transform-origin: top center; /* 以繩頂為支點翻轉 */
-            transform: translateY(120px) rotateX(-80deg); /* 模擬在地面的透視 */
-            opacity: 0;
-            transition: transform 1s cubic-bezier(0.17, 0.67, 0.83, 0.67), opacity 0.3s;
+            transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
-        /* 銜起後的動作：翻轉至垂直並回到嘴部 */
-        .is-active .pendant { transform: translateY(0) rotateX(0deg); opacity: 1; }
-        .is-active .dog-bow { transform: rotateX(20deg) translateY(20px); }
-        .is-active .mouth-move { transform: translateX(-50%) translateY(20px); }
+        /* 黑板組件：初始躺在腳前 (Y 軸設為 100px) */
+        .pendant {
+            transform-origin: top center;
+            transform: translateY(100px) rotateX(-85deg); 
+            opacity: 1; /* 先設為 1 確保能看到畫面 */
+            transition: transform 1.2s cubic-bezier(0.1, 0.5, 0.1, 1), opacity 0.5s;
+        }
 
-        /* 繩帶：縮短距離以貼近狗嘴 */
+        /* 繩帶：緊貼狗嘴 */
         .rope {
-            width: 40px; height: 20px;
-            border-left: 2px solid #d4a373; border-right: 2px solid #d4a373;
+            width: 40px; height: 15px;
+            border-left: 3px solid #bda27e; border-right: 3px solid #bda27e;
         }
 
         .blackboard {
-            width: 160px; height: 100px; background: #2f3e46;
-            border: 4px solid #523a28; border-radius: 4px;
+            width: 180px; min-height: 100px;
+            background: #2c3e50; border: 5px solid #4e342e; border-radius: 8px;
             display: flex; justify-content: center; align-items: center;
-            box-shadow: 0 10px 20px rgba(0,0,0,0.5);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
         }
 
-        .text { color: white; font-weight: bold; padding: 10px; text-align: center; }
+        .chalk-text { color: white; font-size: 20px; font-weight: bold; padding: 10px; text-align: center; }
 
-        /* UI */
-        .ui { position: fixed; bottom: 30px; width: 100%; display: flex; justify-content: center; z-index: 100; }
-        input { padding: 10px; border-radius: 20px 0 0 20px; border: none; width: 200px; }
-        button { padding: 10px 20px; border-radius: 0 20px 20px 0; border: none; background: #e63946; color: white; cursor: pointer; }
+        /* 動畫觸發狀態 */
+        .is-bowing .dog-sprite { transform: rotateX(25deg) translateY(30px) scale(1.1); }
+        .is-bowing .mouth-anchor { transform: translateX(-50%) translateY(30px) scale(1.1); }
+        .is-active .pendant { transform: translateY(0) rotateX(0deg); }
+
+        /* UI Panel */
+        .ui { position: fixed; bottom: 20px; width: 90%; left: 5%; display: flex; z-index: 100; }
+        input { flex: 1; padding: 12px; border-radius: 25px 0 0 25px; border: none; font-size: 16px; }
+        button { padding: 12px 20px; border-radius: 0 25px 25px 0; border: none; background: #ff4757; color: white; font-weight: bold; }
     </style>
 </head>
 <body>
 
-    <div class="stage" id="mainStage">
-        <div id="dog" class="dog-sprite"></div>
-        <div id="anchor" class="mouth-anchor">
-            <div id="board" class="pendant">
+    <div class="stage" id="app">
+        <div class="dog-sprite"></div>
+        <div class="mouth-anchor">
+            <div class="pendant">
                 <div class="rope"></div>
                 <div class="blackboard">
-                    <div id="content" class="text"></div>
+                    <div id="display" class="chalk-text">汪！</div>
                 </div>
             </div>
         </div>
@@ -84,44 +87,39 @@
 
     <div class="ui">
         <input type="text" id="userInput" placeholder="輸入文字...">
-        <button onclick="DogAction.pickup()">送出</button>
+        <button onclick="DogApp.start()">送出</button>
     </div>
 
     <script>
-        // 將動作模擬封裝成模組
-        const DogAction = (function() {
-            const stage = document.getElementById('mainStage');
-            const content = document.getElementById('content');
+        const DogApp = (function() {
+            const app = document.getElementById('app');
+            const display = document.getElementById('display');
             const input = document.getElementById('userInput');
-            const dog = document.getElementById('dog');
-            const anchor = document.getElementById('anchor');
 
             return {
-                pickup: function() {
-                    if (!input.value) return;
-                    content.innerText = input.value;
-                    
-                    // 重置狀態
-                    stage.classList.remove('is-active');
-                    dog.className = 'dog-sprite';
-                    anchor.className = 'mouth-anchor';
+                start: function() {
+                    const text = input.value.trim();
+                    if (!text) return;
 
-                    // 第一步：狗狗低頭 (停頓一下模擬咬住)
+                    display.innerText = text;
+                    app.classList.remove('is-bowing', 'is-active');
+
+                    // 1. 低頭
                     setTimeout(() => {
-                        dog.classList.add('dog-bow');
-                        anchor.classList.add('mouth-move');
-                        
-                        // 第二步：從地面翻起黑板
+                        app.classList.add('is-bowing');
+
+                        // 2. 銜起黑板 (停頓 0.5s)
                         setTimeout(() => {
-                            stage.classList.add('is-active');
-                            
-                            // 第三步：帶著黑板抬頭
+                            app.classList.add('is-active');
+
+                            // 3. 抬頭恢復
                             setTimeout(() => {
-                                dog.classList.remove('dog-bow');
-                                anchor.classList.remove('mouth-move');
-                            }, 800);
+                                app.classList.remove('is-bowing');
+                            }, 1000);
                         }, 500);
-                    }, 100);
+                    }, 50);
+
+                    input.value = '';
                 }
             };
         })();
