@@ -3,46 +3,40 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>狗狗 3D 留言板 App</title>
+    <title>3D Doggy Message App</title>
     <style>
-        :root {
-            --wood: #4e342e;
-            --chalk: #ffffff;
-            --accent: #ff4757;
-        }
-
-        /* 確保全螢幕不滾動 */
-        html, body {
+        body, html {
             margin: 0;
             padding: 0;
             width: 100%;
             height: 100%;
-            overflow: hidden;
-            background-color: #1a1a1a;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            display: flex;
-            flex-direction: column;
+            background-color: #f0f0f0;
+            overflow: hidden; /* 防止滾動 */
+            font-family: sans-serif;
         }
 
-        /* 照片顯示區域：固定在上方，佔據剩餘空間 */
-        .stage {
-            flex: 1;
-            position: relative;
+        /* 讓背景圖完整顯示在螢幕內 */
+        .app-view {
+            position: absolute;
+            top: 0;
+            left: 0;
             width: 100%;
-            background: url('IMG_5730.png') no-repeat center center;
-            background-size: contain; /* 確保整張圖都能看見 */
+            height: 100%;
+            background: url('IMG_5730.png') no-repeat center top;
+            background-size: contain; /* 確保整張圖都能看到 */
+            background-color: #fff;
         }
 
-        /* 狗狗嘴巴掛點 (調整為更精確的中心定位) */
+        /* 狗狗嘴巴座標 (針對 IMG_5730.png 比例優化) */
         .anchor {
             position: absolute;
-            top: 40%;
-            left: 38%;
+            top: 48%; /* 稍微下調對準嘴部 */
+            left: 28%; /* 調整水平位置 */
             z-index: 10;
         }
 
-        /* 黑板模組 */
-        .board-wrap {
+        /* 黑板吊掛組合 */
+        .board-pendant {
             display: flex;
             flex-direction: column;
             align-items: center;
@@ -52,149 +46,130 @@
             opacity: 0;
         }
 
-        .board-wrap.active {
-            transform: scale(1) rotate(0deg);
+        .board-pendant.show {
+            transform: scale(0.9) rotate(0deg); /* 稍微縮小以配合畫面比例 */
             opacity: 1;
         }
 
-        /* 吊繩 */
         .rope {
-            width: 60px;
-            height: 30px;
-            border-left: 3px solid #d4c3a3;
-            border-right: 3px solid #d4c3a3;
+            width: 50px;
+            height: 25px;
+            border-left: 2px solid #8B4513;
+            border-right: 2px solid #8B4513;
             transform: perspective(100px) rotateX(40deg);
-            margin-bottom: -5px;
         }
 
-        /* 黑板 */
         .blackboard {
-            width: 150px;
-            min-height: 90px;
-            background: #263238;
-            border: 6px solid var(--wood);
+            width: 140px;
+            height: 80px;
+            background: #2c3e50;
+            border: 5px solid #5d4037;
             border-radius: 4px;
-            padding: 12px;
-            box-shadow: 0 10px 20px rgba(0,0,0,0.5);
+            box-shadow: 0 8px 15px rgba(0,0,0,0.3);
             display: flex;
             justify-content: center;
             align-items: center;
+            padding: 8px;
             text-align: center;
         }
 
-        .text {
-            color: var(--chalk);
-            font-size: 18px;
+        .chalk-text {
+            color: white;
+            font-size: 16px;
             font-weight: bold;
             word-break: break-all;
-            line-height: 1.3;
-            filter: blur(0.3px); /* 模擬粉筆感 */
         }
 
-        /* 輸入面板：固定在螢幕最下方 */
-        .input-panel {
-            background: #ffffff;
-            padding: 15px 20px;
-            padding-bottom: calc(15px + env(safe-area-inset-bottom)); /* 適應 iPhone X 系列 */
+        /* 固定在底部的輸入面板 - 強制顯示 */
+        .bottom-panel {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            background: white;
+            padding: 15px;
+            padding-bottom: max(15px, env(safe-area-inset-bottom));
+            box-shadow: 0 -5px 20px rgba(0,0,0,0.1);
             display: flex;
-            gap: 12px;
-            border-top: 1px solid #ddd;
-            z-index: 100;
+            gap: 10px;
+            box-sizing: border-box;
+            z-index: 999;
         }
 
         input {
             flex: 1;
-            border: 2px solid #eee;
-            border-radius: 12px;
-            padding: 12px 15px;
+            border: 1px solid #ddd;
+            border-radius: 20px;
+            padding: 10px 15px;
             font-size: 16px;
             outline: none;
-            transition: border-color 0.3s;
-        }
-
-        input:focus {
-            border-color: var(--accent);
         }
 
         button {
-            background-color: var(--accent);
+            background: #ff4757;
             color: white;
             border: none;
-            padding: 0 25px;
-            border-radius: 12px;
+            padding: 10px 20px;
+            border-radius: 20px;
             font-weight: bold;
-            font-size: 16px;
             cursor: pointer;
-            transition: transform 0.1s;
         }
 
-        button:active {
-            transform: scale(0.95);
-        }
-
-        /* 擺動動畫 */
+        /* 搖晃動畫 */
         @keyframes swing {
             0%, 100% { transform: rotate(-2deg); }
             50% { transform: rotate(2deg); }
         }
-
-        .active .blackboard {
+        .swinging {
             animation: swing 3s ease-in-out infinite;
         }
     </style>
 </head>
 <body>
 
-    <div class="stage">
+    <div class="app-view">
         <div class="anchor">
-            <div id="dogBoard" class="board-wrap">
+            <div id="pendant" class="board-pendant">
                 <div class="rope"></div>
                 <div class="blackboard">
-                    <div id="msgDisplay" class="text">汪！點下方輸入</div>
+                    <div id="msg" class="chalk-text">輸入文字看看！</div>
                 </div>
             </div>
         </div>
     </div>
 
-    <div class="input-panel">
-        <input type="text" id="userInput" placeholder="想對我說什麼？" maxlength="20">
-        <button onclick="Board.show()">送出</button>
+    <div class="bottom-panel">
+        <input type="text" id="userInput" placeholder="寫點什麼..." maxlength="15">
+        <button onclick="updateBoard()">秀出</button>
     </div>
 
     <script>
-        /**
-         * 留言板控制模組
-         */
-        const Board = {
-            el: document.getElementById('dogBoard'),
-            display: document.getElementById('msgDisplay'),
-            input: document.getElementById('userInput'),
+        const pendant = document.getElementById('pendant');
+        const msg = document.getElementById('msg');
+        const input = document.getElementById('userInput');
 
-            show() {
-                const val = this.input.value.trim();
-                if (!val) return;
+        function updateBoard() {
+            const val = input.value.trim();
+            if (!val) return;
 
-                // 重新叼起動畫
-                this.el.classList.remove('active');
-                
+            pendant.classList.remove('show', 'swinging');
+            
+            setTimeout(() => {
+                msg.innerText = val;
+                pendant.classList.add('show');
+                input.value = '';
+                input.blur(); // 縮回鍵盤
+
                 setTimeout(() => {
-                    this.display.innerText = val;
-                    this.el.classList.add('active');
-                    this.input.value = '';
-                    this.input.blur(); // 收起手機鍵盤
-                }, 400);
-            }
-        };
+                    pendant.classList.add('swinging');
+                }, 600);
+            }, 300);
+        }
 
-        // 支援鍵盤 Enter 送出
-        document.getElementById('userInput').addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') Board.show();
-        });
-
-        // 預設顯示一次
-        window.onload = () => {
-            setTimeout(() => Board.el.classList.add('active'), 500);
-        };
+        // 預設兩秒後自動彈出第一次
+        setTimeout(() => {
+            pendant.classList.add('show', 'swinging');
+        }, 1500);
     </script>
 </body>
 </html>
