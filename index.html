@@ -13,51 +13,45 @@
 
         .stage {
             position: relative;
-            width: 100%;
-            height: 100%;
-            display: flex;
-            justify-content: center;
-            perspective: 1000px; /* 賦予 3D 空間感 */
+            width: 100%; height: 100%;
+            display: flex; justify-content: center;
+            perspective: 1200px; /* 強化的 3D 透視 */
         }
 
-        /* 狗狗圖層：支點設在腳部 */
+        /* 狗狗圖層 */
         .dog-sprite {
             position: absolute;
-            width: 100%;
-            height: 100%;
+            width: 100%; height: 100%;
             background: url('IMG_5730.png') no-repeat center center;
             background-size: contain;
-            transform-origin: center 85%;
-            transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+            transform-origin: center 85%; /* 支點在腳部 */
+            transition: transform 0.8s cubic-bezier(0.4, 0, 0.2, 1);
             z-index: 1;
         }
 
-        /* 狗狗低頭動作 */
+        /* 誇張化的低頭動作 */
         .dog-bow {
-            transform: rotateX(15deg) translateY(20px) scale(1.05);
+            transform: rotateX(25deg) translateY(40px) scale(1.1);
         }
 
-        /* 嘴巴掛點：跟隨狗狗動作 */
+        /* 嘴巴掛點 */
         .mouth-anchor {
             position: absolute;
-            top: 42%; 
-            left: 38.5%;
+            top: 42%; left: 38.5%;
             z-index: 10;
-            transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+            transition: transform 0.8s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
         .anchor-move {
-            transform: translateY(30px) scale(1.05);
+            transform: translateY(45px) scale(1.1);
         }
 
-        /* 黑板組件：初始隱藏在下方 */
+        /* 黑板組件 */
         .pendant {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            transform: translateY(500px); /* 從下方深處開始 */
+            display: flex; flex-direction: column; align-items: center;
+            transform: translateY(600px); /* 初始隱藏 */
             opacity: 0;
-            transition: transform 1.2s cubic-bezier(0.2, 0, 0.2, 1), opacity 0.5s;
+            transition: transform 1.5s cubic-bezier(0.25, 0.1, 0.25, 1), opacity 0.5s;
         }
 
         .pendant.lift-up {
@@ -73,45 +67,38 @@
         }
 
         .blackboard {
-            width: 160px; min-height: 90px;
+            width: 170px; min-height: 100px;
             background: #2c3e50;
-            border: 5px solid #4e342e;
-            border-radius: 4px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.6);
+            border: 6px solid #4e342e;
+            border-radius: 5px;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.7);
             display: flex; justify-content: center; align-items: center;
             padding: 10px;
         }
 
         .chalk-text {
-            color: #ffffff; /* 確保文字顏色顯眼 */
-            font-size: 20px;
-            font-weight: bold;
-            text-align: center;
-            word-break: break-all;
-            text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+            color: #ffffff; font-size: 22px; font-weight: bold;
+            text-align: center; word-break: break-all;
         }
 
-        /* 生動擺動動畫 */
+        /* 生動擺動 */
         @keyframes swing {
-            0% { transform: rotate(-3deg); }
-            50% { transform: rotate(3deg); }
-            100% { transform: rotate(-3deg); }
+            0% { transform: rotate(-4deg); }
+            50% { transform: rotate(4deg); }
+            100% { transform: rotate(-4deg); }
         }
-        .swinging {
-            animation: swing 3s ease-in-out infinite;
-        }
+        .swinging { animation: swing 3.5s ease-in-out infinite; }
 
-        /* 輸入介面 */
+        /* UI 面板 */
         .ui-panel {
             position: fixed; bottom: 20px; left: 5%; width: 90%;
             background: rgba(255, 255, 255, 0.95);
-            padding: 12px; border-radius: 30px;
+            padding: 15px; border-radius: 30px;
             display: flex; gap: 10px; z-index: 1000;
-            box-shadow: 0 5px 20px rgba(0,0,0,0.5);
         }
 
-        input { flex: 1; border: none; padding: 10px; font-size: 16px; outline: none; background: transparent; }
-        button { background: #ff4757; color: white; border: none; padding: 10px 20px; border-radius: 20px; font-weight: bold; cursor: pointer; }
+        input { flex: 1; border: none; font-size: 16px; outline: none; background: transparent; }
+        button { background: #ff4757; color: white; border: none; padding: 10px 20px; border-radius: 20px; font-weight: bold; }
     </style>
 </head>
 <body>
@@ -129,12 +116,12 @@
     </div>
 
     <div class="ui-panel">
-        <input type="text" id="input" placeholder="對我說點什麼..." maxlength="15">
-        <button onclick="ActionModule.perform()">送出</button>
+        <input type="text" id="input" placeholder="讓狗狗叼起文字...">
+        <button onclick="DogActionModule.play()">送出</button>
     </div>
 
     <script>
-        const ActionModule = (function() {
+        const DogActionModule = (function() {
             const dog = document.getElementById('dog');
             const anchor = document.getElementById('anchor');
             const pendant = document.getElementById('pendant');
@@ -142,32 +129,32 @@
             const input = document.getElementById('input');
 
             return {
-                perform: function() {
+                play: function() {
                     const text = input.value.trim();
                     if (!text) return;
 
-                    // 重置狀態
+                    // 重置
                     pendant.classList.remove('lift-up', 'swinging');
                     dog.classList.remove('dog-bow');
                     anchor.classList.remove('anchor-move');
 
-                    // 1. 狗狗先低頭
+                    // 1. 狗狗低頭
                     setTimeout(() => {
                         dog.classList.add('dog-bow');
                         anchor.classList.add('anchor-move');
-                        display.innerText = text; // 更新文字
+                        display.innerText = text;
 
-                        // 2. 停頓一下 (500ms)，模仿瞄準咬住
+                        // 2. 停頓 0.5 秒 (咬住)
                         setTimeout(() => {
                             // 3. 黑板緩慢沉重地升起
                             pendant.classList.add('lift-up');
                             
-                            // 4. 當黑板升到定位，狗狗抬頭，開始擺動
+                            // 4. 咬住後抬頭並開始擺動
                             setTimeout(() => {
                                 dog.classList.remove('dog-bow');
                                 anchor.classList.remove('anchor-move');
                                 pendant.classList.add('swinging');
-                            }, 1000);
+                            }, 1200);
                         }, 500);
                     }, 100);
 
