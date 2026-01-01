@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Doggy Billboard App</title>
+    <style>
+        :root {
+            --chalk-font: "Comic Sans MS", "Marker Felt", sans-serif;
+        }
+
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #333;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+            font-family: sans-serif;
+        }
+
+        /* 模擬手機 App 容器 */
+        .app-container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            max-width: 600px; /* 限制寬度模擬手機 */
+            max-height: 900px;
+            background: url('https://r.jina.ai/i/4426543b5e4043b39d10e14c1d2e67a0') no-repeat center center;
+            background-size: cover;
+            box-shadow: 0 0 50px rgba(0,0,0,0.5);
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* 狗狗嘴巴定位點 (根據照片精確定位) */
+        .mouth-anchor {
+            position: absolute;
+            top: 39%; /* 狗狗嘴巴的高度比例 */
+            left: 38%; /* 狗狗嘴巴的水平比例 */
+            z-index: 10;
+        }
+
+        /* 黑板吊掛組合 */
+        .pendant-system {
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            transform-origin: top center;
+            transition: all 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            transform: scale(0) rotate(-10deg);
+            opacity: 0;
+        }
+
+        .pendant-system.active {
+            transform: scale(1.1) rotate(0deg);
+            opacity: 1;
+        }
+
+        /* 吊繩 (倒 V 型) */
+        .ropes {
+            width: 80px;
+            height: 40px;
+            border-left: 3px solid #d4c3a3;
+            border-right: 3px solid #d4c3a3;
+            transform: perspective(100px) rotateX(45deg);
+            margin-bottom: -5px;
+        }
+
+        /* 黑板樣式 */
+        .blackboard {
+            width: 160px;
+            height: 100px;
+            background: #222;
+            border: 6px solid #5d4037;
+            border-radius: 4px;
+            box-shadow: 2px 5px 15px rgba(0,0,0,0.4);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 10px;
+            box-sizing: border-box;
+            position: relative;
+        }
+
+        /* 黑板文字（粉筆感） */
+        .message-text {
+            color: rgba(255, 255, 255, 0.9);
+            font-family: var(--chalk-font);
+            font-size: 18px;
+            text-align: center;
+            word-break: break-all;
+            line-height: 1.2;
+            text-shadow: 1px 1px 2px rgba(255,255,255,0.2);
+        }
+
+        /* 下方輸入介面 */
+        .ui-panel {
+            position: absolute;
+            bottom: 30px;
+            width: 90%;
+            left: 5%;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 15px;
+            border-radius: 20px;
+            display: flex;
+            gap: 10px;
+            box-sizing: border-box;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+
+        input {
+            flex: 1;
+            border: 1px solid #ccc;
+            border-radius: 10px;
+            padding: 10px;
+            outline: none;
+        }
+
+        button {
+            background: #ff4757;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        button:active {
+            transform: scale(0.95);
+        }
+    </style>
+</head>
+<body>
+
+    <div class="app-container">
+        <div class="mouth-anchor">
+            <div class="pendant-system" id="pendant">
+                <div class="ropes"></div>
+                <div class="blackboard">
+                    <div class="message-text" id="boardContent">HELLO!</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="ui-panel">
+            <input type="text" id="textInput" placeholder="輸入想讓狗狗說的話..." maxlength="20">
+            <button onclick="dogAction()">送出</button>
+        </div>
+    </div>
+
+    <script>
+        /**
+         * 狗狗留言板 App 模組
+         */
+        const DogApp = {
+            pendant: document.getElementById('pendant'),
+            content: document.getElementById('boardContent'),
+            input: document.getElementById('textInput'),
+
+            say(text) {
+                // 1. 先縮回 (模擬狗狗低頭或重新準備)
+                this.pendant.classList.remove('active');
+                
+                setTimeout(() => {
+                    // 2. 更換文字
+                    this.content.innerText = text;
+                    // 3. 秀出黑板 (模擬咬出來的動作)
+                    this.pendant.classList.add('active');
+                    this.shakeEffect();
+                }, 400);
+            },
+
+            shakeEffect() {
+                // 增加一點點物理晃動
+                this.pendant.animate([
+                    { transform: 'rotate(0deg)' },
+                    { transform: 'rotate(5deg)' },
+                    { transform: 'rotate(-5deg)' },
+                    { transform: 'rotate(0deg)' }
+                ], {
+                    duration: 800,
+                    easing: 'ease-in-out'
+                });
+            }
+        };
+
+        function dogAction() {
+            const val = document.getElementById('textInput').value;
+            if (val.trim()) {
+                DogApp.say(val);
+                document.getElementById('textInput').value = '';
+            }
+        }
+
+        // 支援 Enter 鍵
+        document.getElementById('textInput').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') dogAction();
+        });
+    </script>
+</body>
+</html>
