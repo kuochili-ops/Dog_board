@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>狗狗 3D 留言板</title>
+    <style>
+        :root {
+            --board-color: #1a1a1a;
+            --wood-border: #4a2c2a;
+            --chalk-white: #f0f0f0;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background-color: #f5f5f5;
+            font-family: 'Arial', sans-serif;
+            overflow-x: hidden;
+        }
+
+        /* 頂部背景圖片區域 */
+        .hero-container {
+            position: relative;
+            width: 100%;
+            max-width: 800px;
+            height: 500px;
+            background: url('https://images.unsplash.com/photo-1516734212186-a967f81ad0d7?q=80&w=2071&auto=format&fit=crop') center/cover;
+            border-bottom: 5px solid #ddd;
+            display: flex;
+            justify-content: center;
+            overflow: hidden;
+        }
+
+        /* 模擬照片中的狗狗 (示意位子) */
+        .dog-mouth-point {
+            position: absolute;
+            top: 220px; /* 根據照片中狗狗嘴巴的位置調整 */
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 10;
+        }
+
+        /* 吊繩 */
+        .rope {
+            position: absolute;
+            top: 0;
+            width: 4px;
+            height: 100px;
+            background: #8B4513;
+            border-radius: 2px;
+            transform-origin: top center;
+            transition: all 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        .rope-left { transform: rotate(15deg); left: -60px; }
+        .rope-right { transform: rotate(-15deg); right: -60px; }
+
+        /* 黑板容器 */
+        .board-container {
+            position: absolute;
+            top: 250px;
+            transition: all 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            transform: translateY(500px) scale(0.5); /* 初始隱藏在下方 */
+            opacity: 0;
+        }
+
+        .board-container.show {
+            transform: translateY(0) scale(1);
+            opacity: 1;
+        }
+
+        /* 黑板樣式 */
+        .blackboard {
+            position: relative;
+            width: 300px;
+            min-height: 180px;
+            background-color: var(--board-color);
+            border: 12px solid var(--wood-border);
+            border-radius: 8px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            color: var(--chalk-white);
+            font-size: 24px;
+            font-weight: bold;
+            box-sizing: border-box;
+            background-image: radial-gradient(circle, rgba(255,255,255,0.05) 0%, transparent 80%);
+        }
+
+        /* 粉筆字效果 */
+        .chalk-text {
+            filter: blur(0.5px);
+            text-shadow: 1px 1px 2px rgba(255,255,255,0.3);
+            word-break: break-all;
+        }
+
+        /* 輸入區域 */
+        .input-area {
+            margin: 40px;
+            display: flex;
+            gap: 10px;
+        }
+
+        input {
+            padding: 12px;
+            width: 300px;
+            border: 2px solid #ccc;
+            border-radius: 25px;
+            outline: none;
+        }
+
+        button {
+            padding: 10px 25px;
+            background-color: #ff6b6b;
+            color: white;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            transition: 0.3s;
+        }
+
+        button:hover { background-color: #ee5253; }
+
+    </style>
+</head>
+<body>
+
+    <div class="hero-container">
+        <div class="dog-mouth-point" id="dogAnchor">
+            <div class="board-container" id="boardWrapper">
+                <div class="rope rope-left"></div>
+                <div class="rope rope-right"></div>
+                <div class="blackboard">
+                    <div class="chalk-text" id="messageDisplay">汪！請輸入訊息</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="input-area">
+        <input type="text" id="userInput" placeholder="寫下想給狗狗秀出的話..." maxlength="30">
+        <button onclick="updateMessage()">秀出訊息！</button>
+    </div>
+
+    <script>
+        /**
+         * 留言板顯示模組
+         */
+        const boardModule = {
+            wrapper: document.getElementById('boardWrapper'),
+            display: document.getElementById('messageDisplay'),
+            
+            show(text) {
+                // 先收起來，造成一種「重新叼起」的感覺
+                this.wrapper.classList.remove('show');
+                
+                setTimeout(() => {
+                    this.display.innerText = text;
+                    this.wrapper.classList.add('show');
+                    this.shake();
+                }, 300);
+            },
+
+            shake() {
+                // 模擬叼起來後的晃動感
+                this.wrapper.animate([
+                    { transform: 'translateY(0) rotate(0deg)' },
+                    { transform: 'translateY(5px) rotate(2deg)' },
+                    { transform: 'translateY(0) rotate(-2deg)' },
+                    { transform: 'translateY(0) rotate(0deg)' }
+                ], {
+                    duration: 500,
+                    iterations: 1
+                });
+            }
+        };
+
+        function updateMessage() {
+            const input = document.getElementById('userInput');
+            if (input.value.trim() !== "") {
+                boardModule.show(input.value);
+                input.value = ""; // 清空輸入框
+            } else {
+                alert("請輸入一點內容喔！");
+            }
+        }
+
+        // 監聽 Enter 鍵
+        document.getElementById('userInput').addEventListener('keypress', function (e) {
+            if (e.key === 'Enter') {
+                updateMessage();
+            }
+        });
+    </script>
+</body>
+</html>
