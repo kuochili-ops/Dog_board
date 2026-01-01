@@ -3,104 +3,124 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>3D Doggy Message App</title>
+    <title>3D Doggy Action App</title>
     <style>
         body, html {
-            margin: 0;
-            padding: 0;
-            width: 100%;
-            height: 100%;
-            background-color: #f0f0f0;
-            overflow: hidden; /* 防止滾動 */
+            margin: 0; padding: 0; width: 100%; height: 100%;
+            overflow: hidden; background-color: #000;
             font-family: sans-serif;
         }
 
-        /* 讓背景圖完整顯示在螢幕內 */
-        .app-view {
+        /* 舞台區域 */
+        .stage {
+            position: relative;
+            width: 100%;
+            height: calc(100% - 80px); /* 留空間給下方輸入欄 */
+            background-color: #333;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+        }
+
+        /* 狗狗背景 - 為了動作感，我們稍微放大背景 */
+        .dog-sprite {
             position: absolute;
-            top: 0;
-            left: 0;
             width: 100%;
             height: 100%;
-            background: url('IMG_5730.png') no-repeat center top;
-            background-size: contain; /* 確保整張圖都能看到 */
-            background-color: #fff;
+            background: url('IMG_5730.png') no-repeat center center;
+            background-size: contain;
+            transition: transform 0.8s cubic-bezier(0.45, 0.05, 0.55, 0.95);
+            z-index: 1;
         }
 
-        /* 狗狗嘴巴座標 (針對 IMG_5730.png 比例優化) */
-        .anchor {
+        /* 當狗狗「低頭」時的動作：身體稍微下壓並放大 */
+        .stage.action .dog-sprite {
+            transform: translateY(20px) scale(1.05);
+        }
+
+        /* 嘴巴掛點：隨狗狗身體移動 */
+        .mouth-anchor {
             position: absolute;
-            top: 48%; /* 稍微下調對準嘴部 */
-            left: 28%; /* 調整水平位置 */
-            z-index: 10;
+            top: 42%; /* 根據你的圖片精確調整 */
+            left: 38%;
+            z-index: 5;
+            transition: transform 0.8s cubic-bezier(0.45, 0.05, 0.55, 0.95);
         }
 
-        /* 黑板吊掛組合 */
-        .board-pendant {
+        .stage.action .mouth-anchor {
+            transform: translateY(20px) scale(1.05);
+        }
+
+        /* 黑板吊掛組合：初始隱藏在下方 */
+        .pendant-container {
             display: flex;
             flex-direction: column;
             align-items: center;
             transform-origin: top center;
-            transition: all 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-            transform: scale(0) rotate(-15deg);
+            transform: translateY(400px); /* 初始在螢幕外 */
+            transition: transform 1s cubic-bezier(0.25, 0.1, 0.25, 1);
             opacity: 0;
         }
 
-        .board-pendant.show {
-            transform: scale(0.9) rotate(0deg); /* 稍微縮小以配合畫面比例 */
+        /* 提上來的動作 */
+        .pendant-container.lift {
+            transform: translateY(0);
             opacity: 1;
         }
 
+        /* 吊繩：粗繩質感 */
         .rope {
-            width: 50px;
-            height: 25px;
-            border-left: 2px solid #8B4513;
-            border-right: 2px solid #8B4513;
-            transform: perspective(100px) rotateX(40deg);
+            width: 60px;
+            height: 40px;
+            border-left: 4px solid #8B4513;
+            border-right: 4px solid #8B4513;
+            transform: perspective(100px) rotateX(45deg);
         }
 
         .blackboard {
-            width: 140px;
-            height: 80px;
-            background: #2c3e50;
-            border: 5px solid #5d4037;
-            border-radius: 4px;
-            box-shadow: 0 8px 15px rgba(0,0,0,0.3);
+            width: 180px;
+            min-height: 100px;
+            background: #1a1a1a;
+            border: 6px solid #4e342e;
+            border-radius: 8px;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.6);
+            padding: 15px;
             display: flex;
             justify-content: center;
             align-items: center;
-            padding: 8px;
             text-align: center;
+            box-sizing: border-box;
         }
 
         .chalk-text {
-            color: white;
-            font-size: 16px;
+            color: #fff;
+            font-size: 20px;
             font-weight: bold;
-            word-break: break-all;
+            line-height: 1.2;
+            text-shadow: 1px 1px 2px rgba(255,255,255,0.3);
         }
 
-        /* 固定在底部的輸入面板 - 強制顯示 */
-        .bottom-panel {
+        /* 下方固定輸入面板 */
+        .input-panel {
             position: fixed;
             bottom: 0;
-            left: 0;
             width: 100%;
-            background: white;
-            padding: 15px;
-            padding-bottom: max(15px, env(safe-area-inset-bottom));
-            box-shadow: 0 -5px 20px rgba(0,0,0,0.1);
+            height: 80px;
+            background: #fff;
             display: flex;
-            gap: 10px;
+            padding: 15px;
             box-sizing: border-box;
-            z-index: 999;
+            gap: 10px;
+            z-index: 1000;
+            box-shadow: 0 -5px 15px rgba(0,0,0,0.2);
         }
 
         input {
             flex: 1;
-            border: 1px solid #ddd;
-            border-radius: 20px;
-            padding: 10px 15px;
+            border: 2px solid #eee;
+            border-radius: 10px;
+            padding: 0 15px;
             font-size: 16px;
             outline: none;
         }
@@ -109,67 +129,83 @@
             background: #ff4757;
             color: white;
             border: none;
-            padding: 10px 20px;
-            border-radius: 20px;
+            padding: 0 20px;
+            border-radius: 10px;
             font-weight: bold;
             cursor: pointer;
         }
 
-        /* 搖晃動畫 */
+        /* 持續搖晃動畫 */
         @keyframes swing {
-            0%, 100% { transform: rotate(-2deg); }
+            0% { transform: rotate(-2deg); }
             50% { transform: rotate(2deg); }
+            100% { transform: rotate(-2deg); }
         }
-        .swinging {
-            animation: swing 3s ease-in-out infinite;
-        }
+        .swinging { animation: swing 2.5s ease-in-out infinite; }
     </style>
 </head>
 <body>
 
-    <div class="app-view">
-        <div class="anchor">
-            <div id="pendant" class="board-pendant">
+    <div class="stage" id="stage">
+        <div class="dog-sprite"></div>
+        
+        <div class="mouth-anchor">
+            <div id="pendant" class="pendant-container">
                 <div class="rope"></div>
-                <div class="blackboard">
-                    <div id="msg" class="chalk-text">輸入文字看看！</div>
+                <div class="blackboard" id="boardEl">
+                    <div id="msg" class="chalk-text">汪！請輸入</div>
                 </div>
             </div>
         </div>
     </div>
 
-    <div class="bottom-panel">
-        <input type="text" id="userInput" placeholder="寫點什麼..." maxlength="15">
-        <button onclick="updateBoard()">秀出</button>
+    <div class="input-panel">
+        <input type="text" id="userInput" placeholder="寫點什麼給狗狗..." maxlength="20">
+        <button onclick="DogAction.perform()">送出</button>
     </div>
 
     <script>
-        const pendant = document.getElementById('pendant');
-        const msg = document.getElementById('msg');
-        const input = document.getElementById('userInput');
+        const DogAction = {
+            stage: document.getElementById('stage'),
+            pendant: document.getElementById('pendant'),
+            msg: document.getElementById('msg'),
+            board: document.getElementById('boardEl'),
+            input: document.getElementById('userInput'),
 
-        function updateBoard() {
-            const val = input.value.trim();
-            if (!val) return;
+            perform() {
+                const text = this.input.value.trim();
+                if (!text) return;
 
-            pendant.classList.remove('show', 'swinging');
-            
-            setTimeout(() => {
-                msg.innerText = val;
-                pendant.classList.add('show');
-                input.value = '';
-                input.blur(); // 縮回鍵盤
+                // 1. 初始化狀態：黑板先降下去
+                this.pendant.classList.remove('lift', 'swinging');
+                this.stage.classList.remove('action');
 
                 setTimeout(() => {
-                    pendant.classList.add('swinging');
-                }, 600);
-            }, 300);
-        }
+                    // 2. 狗狗低頭準備 (模擬動作)
+                    this.stage.classList.add('action');
+                    this.msg.innerText = text;
 
-        // 預設兩秒後自動彈出第一次
-        setTimeout(() => {
-            pendant.classList.add('show', 'swinging');
-        }, 1500);
+                    // 3. 延遲一下，模擬「叼住」後提上來
+                    setTimeout(() => {
+                        this.pendant.classList.add('lift');
+                        
+                        // 4. 提上來後，狗狗恢復原位，黑板開始搖晃
+                        setTimeout(() => {
+                            this.stage.classList.remove('action');
+                            this.pendant.classList.add('swinging');
+                        }, 800);
+                    }, 400);
+                }, 300);
+
+                this.input.value = '';
+                this.input.blur();
+            }
+        };
+
+        // 支援鍵盤 Enter
+        document.getElementById('userInput').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') DogAction.perform();
+        });
     </script>
 </body>
 </html>
