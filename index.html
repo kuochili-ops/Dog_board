@@ -3,10 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>3D Doggy Billboard App</title>
+    <title>新宿狗狗 3D 留言板</title>
     <style>
         :root {
-            --chalk-font: "Comic Sans MS", "Marker Felt", sans-serif;
+            --wood-frame: #3d2b1f;
+            --chalk-color: #f5f5f5;
         }
 
         body, html {
@@ -14,110 +15,107 @@
             padding: 0;
             width: 100%;
             height: 100%;
-            background-color: #333;
+            background-color: #000;
             display: flex;
             justify-content: center;
-            align-items: center;
             overflow: hidden;
-            font-family: sans-serif;
         }
 
-        /* 模擬手機 App 容器 */
-        .app-container {
+        /* 主容器：以你上傳的圖檔作為背景 */
+        .dog-app {
             position: relative;
             width: 100vw;
             height: 100vh;
-            max-width: 600px; /* 限制寬度模擬手機 */
-            max-height: 900px;
-            background: url('https://r.jina.ai/i/4426543b5e4043b39d10e14c1d2e67a0') no-repeat center center;
+            max-width: 500px;
+            background: url('IMG_5730.png') no-repeat center center;
             background-size: cover;
-            box-shadow: 0 0 50px rgba(0,0,0,0.5);
-            display: flex;
-            flex-direction: column;
+            box-shadow: 0 0 100px rgba(0,0,0,0.8);
         }
 
-        /* 狗狗嘴巴定位點 (根據照片精確定位) */
-        .mouth-anchor {
+        /* 狗狗嘴巴的掛點位置 */
+        .hang-point {
             position: absolute;
-            top: 39%; /* 狗狗嘴巴的高度比例 */
-            left: 38%; /* 狗狗嘴巴的水平比例 */
-            z-index: 10;
+            top: 40.5%; /* 精確對準狗狗嘴巴 */
+            left: 38.5%;
+            perspective: 1000px;
+            z-index: 100;
         }
 
-        /* 黑板吊掛組合 */
-        .pendant-system {
-            position: relative;
+        /* 黑板吊掛系統 */
+        .board-module {
             display: flex;
             flex-direction: column;
             align-items: center;
             transform-origin: top center;
-            transition: all 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-            transform: scale(0) rotate(-10deg);
+            transition: all 0.7s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            transform: scale(0) rotateX(-30deg);
             opacity: 0;
         }
 
-        .pendant-system.active {
-            transform: scale(1.1) rotate(0deg);
+        .board-module.active {
+            transform: scale(1) rotateX(0deg);
             opacity: 1;
         }
 
-        /* 吊繩 (倒 V 型) */
-        .ropes {
-            width: 80px;
-            height: 40px;
-            border-left: 3px solid #d4c3a3;
-            border-right: 3px solid #d4c3a3;
+        /* 吊繩：倒 V 字型 */
+        .string {
+            width: 70px;
+            height: 35px;
+            border-left: 3px solid #bda27e;
+            border-right: 3px solid #bda27e;
             transform: perspective(100px) rotateX(45deg);
-            margin-bottom: -5px;
+            margin-bottom: -4px;
+            box-shadow: 1px 1px 2px rgba(0,0,0,0.3);
         }
 
-        /* 黑板樣式 */
+        /* 黑板主體 */
         .blackboard {
-            width: 160px;
-            height: 100px;
-            background: #222;
-            border: 6px solid #5d4037;
-            border-radius: 4px;
-            box-shadow: 2px 5px 15px rgba(0,0,0,0.4);
+            width: 180px;
+            min-height: 100px;
+            background: #1e1e1e;
+            border: 8px solid var(--wood-frame);
+            border-radius: 5px;
+            padding: 15px;
             display: flex;
             justify-content: center;
             align-items: center;
-            padding: 10px;
+            box-shadow: 5px 15px 25px rgba(0,0,0,0.5);
             box-sizing: border-box;
-            position: relative;
         }
 
-        /* 黑板文字（粉筆感） */
-        .message-text {
-            color: rgba(255, 255, 255, 0.9);
-            font-family: var(--chalk-font);
-            font-size: 18px;
+        .text-content {
+            color: var(--chalk-color);
+            font-family: "Comic Sans MS", "Marker Felt", cursive, sans-serif;
+            font-size: 20px;
             text-align: center;
             word-break: break-all;
-            line-height: 1.2;
-            text-shadow: 1px 1px 2px rgba(255,255,255,0.2);
+            text-shadow: 1px 1px 3px rgba(255,255,255,0.2);
+            filter: blur(0.3px);
         }
 
-        /* 下方輸入介面 */
-        .ui-panel {
+        /* 控制區域 */
+        .controls {
             position: absolute;
-            bottom: 30px;
+            bottom: 40px;
             width: 90%;
             left: 5%;
-            background: rgba(255, 255, 255, 0.9);
+            background: rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(10px);
             padding: 15px;
-            border-radius: 20px;
+            border-radius: 25px;
             display: flex;
             gap: 10px;
             box-sizing: border-box;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            border: 1px solid rgba(255,255,255,0.2);
         }
 
         input {
             flex: 1;
-            border: 1px solid #ccc;
-            border-radius: 10px;
-            padding: 10px;
+            background: rgba(255,255,255,0.8);
+            border: none;
+            padding: 12px 18px;
+            border-radius: 20px;
+            font-size: 16px;
             outline: none;
         }
 
@@ -125,83 +123,88 @@
             background: #ff4757;
             color: white;
             border: none;
-            padding: 10px 20px;
-            border-radius: 10px;
+            padding: 0 20px;
+            border-radius: 20px;
             cursor: pointer;
             font-weight: bold;
+            transition: 0.2s;
         }
 
         button:active {
-            transform: scale(0.95);
+            transform: scale(0.9);
+        }
+
+        /* 搖晃動畫 */
+        @keyframes swing {
+            0% { transform: rotate(0deg); }
+            25% { transform: rotate(3deg); }
+            75% { transform: rotate(-3deg); }
+            100% { transform: rotate(0deg); }
+        }
+
+        .swinging {
+            animation: swing 2s ease-in-out infinite;
         }
     </style>
 </head>
 <body>
 
-    <div class="app-container">
-        <div class="mouth-anchor">
-            <div class="pendant-system" id="pendant">
-                <div class="ropes"></div>
-                <div class="blackboard">
-                    <div class="message-text" id="boardContent">HELLO!</div>
-                </div>
+<div class="dog-app">
+    <div class="hang-point">
+        <div id="dogBoard" class="board-module">
+            <div class="string"></div>
+            <div class="blackboard">
+                <div id="msgText" class="text-content">汪！跟我說話吧</div>
             </div>
-        </div>
-
-        <div class="ui-panel">
-            <input type="text" id="textInput" placeholder="輸入想讓狗狗說的話..." maxlength="20">
-            <button onclick="dogAction()">送出</button>
         </div>
     </div>
 
-    <script>
-        /**
-         * 狗狗留言板 App 模組
-         */
-        const DogApp = {
-            pendant: document.getElementById('pendant'),
-            content: document.getElementById('boardContent'),
-            input: document.getElementById('textInput'),
+    <div class="controls">
+        <input type="text" id="inputMsg" placeholder="輸入訊息..." maxlength="25">
+        <button id="sendBtn">秀出</button>
+    </div>
+</div>
 
-            say(text) {
-                // 1. 先縮回 (模擬狗狗低頭或重新準備)
-                this.pendant.classList.remove('active');
+<script>
+/**
+ * DogBoardModule - 負責處理狗狗叼牌邏輯
+ */
+const DogBoardModule = (function() {
+    const board = document.getElementById('dogBoard');
+    const text = document.getElementById('msgText');
+
+    return {
+        update(message) {
+            // 先收回
+            board.classList.remove('active', 'swinging');
+            
+            setTimeout(() => {
+                text.innerText = message;
+                // 秀出並觸發動畫
+                board.classList.add('active');
                 
+                // 動畫結束後開始持續搖晃
                 setTimeout(() => {
-                    // 2. 更換文字
-                    this.content.innerText = text;
-                    // 3. 秀出黑板 (模擬咬出來的動作)
-                    this.pendant.classList.add('active');
-                    this.shakeEffect();
-                }, 400);
-            },
-
-            shakeEffect() {
-                // 增加一點點物理晃動
-                this.pendant.animate([
-                    { transform: 'rotate(0deg)' },
-                    { transform: 'rotate(5deg)' },
-                    { transform: 'rotate(-5deg)' },
-                    { transform: 'rotate(0deg)' }
-                ], {
-                    duration: 800,
-                    easing: 'ease-in-out'
-                });
-            }
-        };
-
-        function dogAction() {
-            const val = document.getElementById('textInput').value;
-            if (val.trim()) {
-                DogApp.say(val);
-                document.getElementById('textInput').value = '';
-            }
+                    board.classList.add('swinging');
+                }, 700);
+            }, 300);
         }
+    };
+})();
 
-        // 支援 Enter 鍵
-        document.getElementById('textInput').addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') dogAction();
-        });
-    </script>
+// 事件綁定
+document.getElementById('sendBtn').onclick = () => {
+    const input = document.getElementById('inputMsg');
+    if(input.value.trim()) {
+        DogBoardModule.update(input.value);
+        input.value = '';
+    }
+};
+
+document.getElementById('inputMsg').onkeypress = (e) => {
+    if(e.key === 'Enter') document.getElementById('sendBtn').click();
+};
+</script>
+
 </body>
 </html>
