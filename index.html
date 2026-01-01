@@ -1,71 +1,24 @@
-<!DOCTYPE html>
-<html lang="zh-TW">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>3D Doggy Action App</title>
-    <style>
-        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background-color: #1a1a1a; font-family: sans-serif; }
-        .stage { position: relative; width: 100%; height: 100%; display: flex; justify-content: center; perspective: 1500px; }
-        .dog-sprite { position: absolute; width: 100%; height: 100%; background: url('IMG_5730.png') no-repeat center center; background-size: contain; transform-origin: center 85%; transition: transform 0.8s cubic-bezier(0.4, 0, 0.2, 1); z-index: 1; }
-        .dog-bow { transform: rotateX(25deg) translateY(40px) scale(1.1); }
-        .mouth-anchor { position: absolute; top: 42%; left: 38.5%; z-index: 10; transition: transform 0.8s cubic-bezier(0.4, 0, 0.2, 1); }
-        .anchor-move { transform: translateY(45px) scale(1.1); }
-        .pendant { display: flex; flex-direction: column; align-items: center; transform: translateY(600px) rotateX(-15deg); opacity: 0; transition: transform 1.5s cubic-bezier(0.2, 0.1, 0.2, 1), opacity 0.5s; }
-        .pendant.lift-up { transform: translateY(0) rotateX(0deg); opacity: 1; }
-        .rope { width: 55px; height: 35px; border-left: 3px solid #bda27e; border-right: 3px solid #bda27e; transform: perspective(100px) rotateX(45deg); }
-        .blackboard { width: 170px; min-height: 100px; background: #2c3e50; border: 6px solid #4e342e; border-radius: 5px; box-shadow: 0 15px 35px rgba(0,0,0,0.7); display: flex; justify-content: center; align-items: center; padding: 10px; }
-        .chalk-text { color: #ffffff; font-size: 22px; font-weight: bold; text-align: center; word-break: break-all; }
-        @keyframes swing { 0% { transform: rotate(-3deg); } 50% { transform: rotate(3deg); } 100% { transform: rotate(-3deg); } }
-        .swinging { animation: swing 4s ease-in-out infinite; }
-        .ui-panel { position: fixed; bottom: 20px; left: 5%; width: 90%; background: rgba(255, 255, 255, 0.95); padding: 15px; border-radius: 30px; display: flex; gap: 10px; z-index: 1000; }
-        input { flex: 1; border: none; font-size: 16px; outline: none; background: transparent; }
-        button { background: #ff4757; color: white; border: none; padding: 10px 20px; border-radius: 20px; font-weight: bold; }
-    </style>
-</head>
-<body>
-    <div class="stage">
-        <div id="dog" class="dog-sprite"></div>
-        <div id="anchor" class="mouth-anchor">
-            <div id="pendant" class="pendant">
-                <div class="rope"></div>
-                <div class="blackboard">
-                    <div id="display" class="chalk-text">汪！</div>
-                </div>
-            </div>
-        </div>
-    </div>
-    <div class="ui-panel">
-        <input type="text" id="input" placeholder="讓狗狗叼起文字...">
-        <button onclick="DogSimulator.play()">送出</button>
-    </div>
-    <script>
-        const DogSimulator = (function() {
-            const dog = document.getElementById('dog'), anchor = document.getElementById('anchor'), pendant = document.getElementById('pendant'), display = document.getElementById('display'), input = document.getElementById('input');
-            return {
-                play: function() {
-                    const text = input.value.trim();
-                    if (!text) return;
-                    pendant.classList.remove('lift-up', 'swinging');
-                    dog.classList.remove('dog-bow');
-                    anchor.classList.remove('anchor-move');
-                    setTimeout(() => {
-                        dog.classList.add('dog-bow');
-                        anchor.classList.add('anchor-move');
-                        display.innerText = text;
-                        setTimeout(() => {
-                            pendant.classList.add('lift-up');
-                            setTimeout(() => {
-                                dog.classList.remove('dog-bow');
-                                anchor.classList.remove('anchor-move');
-                                pendant.classList.add('swinging');
-                            }, 1200);
-                        }, 600);
-                    }, 100);
-                    input.value = '';
-                }
-            };
-        })();
-    </script>
-</body>
-</html>
+<style>
+    /* ...保留其他樣式... */
+    .pendant {
+        display: flex; flex-direction: column; align-items: center;
+        /* 初始狀態：在腳部位置並平躺 70 度 */
+        transform: translateY(180px) rotateX(-75deg); 
+        transform-origin: top center; /* 以繩子頂端為支點翻轉 */
+        opacity: 0;
+        transition: transform 1.5s cubic-bezier(0.2, 0.1, 0.2, 1.2), opacity 0.5s;
+    }
+
+    /* 銜起後的狀態 */
+    .pendant.lift-up {
+        transform: translateY(0) rotateX(0deg); 
+        opacity: 1;
+    }
+
+    /* 調整繩子長度使其更貼近嘴巴 */
+    .rope {
+        width: 40px; height: 25px; /* 縮短繩子 */
+        border-left: 3px solid #bda27e;
+        border-right: 3px solid #bda27e;
+    }
+</style>
