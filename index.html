@@ -3,74 +3,28 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Precision Blackboard Sync</title>
+    <title>Dog Blackboard Physics Sync</title>
     <style>
-        :root { --duration: 3.5s; }
-        body { background: #111; color: #fff; margin: 0; display: flex; flex-direction: column; align-items: center; font-family: sans-serif; }
-        
-        .stage {
-            position: relative;
-            width: 100%;
-            max-width: 800px;
-            perspective: 1200px; /* 模擬相機焦距 */
-            overflow: hidden;
-            background: #000;
-        }
-
+        body { background: #000; color: #fff; margin: 0; display: flex; flex-direction: column; align-items: center; font-family: sans-serif; overflow-x: hidden; }
+        .stage { position: relative; width: 100%; max-width: 800px; perspective: 1000px; background: #000; }
         video { width: 100%; display: block; }
 
-        /* 文字圖形層：尺寸與黑板一致 */
-        #textCanvas {
+        /* 透明底圖形層 */
+        #textSticker {
             position: absolute;
-            /* 定位到黑板在影片中的最終座標範圍 */
-            top: 54%;
-            left: 55%;
-            width: 33%;  /* 對應黑板寬度 */
-            height: 43%; /* 對應黑板高度 */
-            
+            top: 0; left: 0;
+            width: 100%; height: 100%;
             pointer-events: none;
             z-index: 10;
-            
-            /* 關鍵：設置旋轉軸心在黑板頂部吊繩處 */
-            transform-origin: 50% 0%; 
-            
-            /* 初始狀態：完全倒貼在黑板背面 */
-            transform: translate(-50%, -0%) rotateX(-105deg);
-            opacity: 0;
-            
-            /* 優化渲染 */
-            will-change: transform, opacity;
+            transform-style: preserve-3d;
             backface-visibility: hidden;
             -webkit-backface-visibility: hidden;
+            display: none; /* 初始隱藏 */
         }
 
-        /* 模擬黑板逆向追蹤動畫 */
-        @keyframes boardTracker {
-            0% {
-                opacity: 0;
-                transform: translate(-50%, -0%) rotateX(-105deg) rotateY(15deg);
-            }
-            40% {
-                /* 剛翻過 90 度，文字開始顯現 */
-                opacity: 1;
-                transform: translate(-51%, -2%) rotateX(-80deg) rotateY(15deg) rotateZ(-3deg);
-            }
-            75% {
-                opacity: 1;
-                transform: translate(-53%, -4%) rotateX(-20deg) rotateY(12deg) rotateZ(-1deg);
-            }
-            100% {
-                /* 最終狀態：左高右低的透視形狀 */
-                opacity: 1;
-                transform: translate(-53.5%, -5%) rotateX(0deg) rotateY(11deg) rotateZ(0deg);
-            }
-        }
-
-        .active { animation: boardTracker var(--duration) linear forwards; }
-
-        .controls { padding: 20px; width: 100%; max-width: 400px; }
-        input { width: 100%; padding: 12px; margin-bottom: 10px; border-radius: 8px; border: none; font-size: 16px; background: #222; color: #fff; }
-        button { width: 100%; padding: 12px; background: #f1c40f; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; }
+        .controls { padding: 20px; width: 100%; max-width: 400px; box-sizing: border-box; }
+        input { width: 100%; padding: 15px; margin-bottom: 10px; border-radius: 8px; border: none; font-size: 16px; background: #222; color: #fff; }
+        button { width: 100%; padding: 15px; background: #f1c40f; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; }
     </style>
 </head>
 <body>
@@ -79,55 +33,79 @@
         <video id="v" playsinline webkit-playsinline muted>
             <source src="dog_board.mp4" type="video/mp4">
         </video>
-        <canvas id="textCanvas"></canvas>
+        <canvas id="textSticker"></canvas>
     </div>
 
     <div class="controls">
-        <input type="text" id="userInput" placeholder="輸入要加註在黑板的文字...">
-        <button onclick="startSync()">執行同步加註</button>
+        <input type="text" id="userInput" placeholder="輸入要加註的文字...">
+        <button onclick="startAnimation()">執行極致同步</button>
     </div>
 
     <script>
-        const canvas = document.getElementById('textCanvas');
-        const ctx = canvas.getContext('2d');
         const video = document.getElementById('v');
+        const canvas = document.getElementById('textSticker');
+        const ctx = canvas.getContext('2d');
         const input = document.getElementById('userInput');
 
-        function generateTextImage(text) {
-            // 1. 設定畫布尺寸（模擬黑板比例）
-            canvas.width = 400;
-            canvas.height = 300;
-            
-            // 2. 清除畫布（透明底）
+        // 建立文字圖形（白色字、透明底）
+        function createTextImage(text) {
+            canvas.width = video.clientWidth;
+            canvas.height = video.clientHeight;
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             
-            // 3. 繪製白色文字
-            ctx.fillStyle = "white";
-            ctx.font = "bold 48px sans-serif";
+            // 設定仿粉筆字樣式
+            ctx.fillStyle = "rgba(255, 255, 255, 0.9)";
+            ctx.font = "bold 28px sans-serif";
             ctx.textAlign = "center";
-            ctx.textBaseline = "middle";
-            
-            // 處理多行或過長文字可在此擴充
-            ctx.fillText(text, canvas.width / 2, canvas.height / 2);
+            ctx.fillText(text, 100, 75); // 在局部區域繪製
         }
 
-        function startSync() {
-            const text = input.value || "這下對了吧！";
-            
-            // 生成圖像
-            generateTextImage(text);
-            
-            // 重置狀態
-            canvas.classList.remove('active');
-            video.pause();
-            video.currentTime = 0;
-            
-            void canvas.offsetWidth; // Reflow
-            
-            // 同步啟動
-            video.play();
-            canvas.classList.add('active');
+        // 核心邏輯：每一幀根據影片時間計算 3D 變換
+        function syncFrame() {
+            if (video.paused || video.ended) return;
+
+            const time = video.currentTime;
+            let opacity = 0;
+            let transform = "";
+
+            // 逆向紀錄的運動路徑 (依據 dog_board.mp4)
+            if (time < 1.0) {
+                opacity = 0;
+            } else if (time < 2.8) {
+                // 翻轉階段：從水平 (-90deg) 到垂直 (0deg)
+                const progress = (time - 1.0) / 1.8; 
+                opacity = progress > 0.5 ? 1 : 0; // 過半才顯示
+                
+                const rotateX = -90 + (90 * progress);
+                const translateY = 50 - (5 * progress);
+                const rotateY = 15 * progress;
+                
+                // 動態調整矩陣位置，模擬黑板隨狗狗頭部晃動
+                transform = `translate(54%, ${translateY}%) rotateX(${rotateX}deg) rotateY(${rotateY}deg) translate(-50%, -50%)`;
+            } else {
+                // 最終定格狀態
+                opacity = 1;
+                transform = `translate(54%, 45%) rotateX(0deg) rotateY(15deg) translate(-50%, -50%)`;
+            }
+
+            canvas.style.opacity = opacity;
+            canvas.style.transform = transform;
+            canvas.style.display = "block";
+
+            requestAnimationFrame(syncFrame);
         }
+
+        function startAnimation() {
+            createTextImage(input.value || "汪！這下對齊了");
+            video.currentTime = 0;
+            video.play();
+            requestAnimationFrame(syncFrame);
+        }
+
+        // 監聽視窗變化重新繪製圖形
+        window.addEventListener('resize', () => {
+            if(input.value) createTextImage(input.value);
+        });
     </script>
 </body>
 </html>
