@@ -2,119 +2,165 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dog Flip-Board Precise Sync</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Dog Blackboard Pro</title>
     <style>
         :root {
-            --start-time: 1.2s; /* 配合影片，狗狗開始叼起的精確時間 */
-            --duration: 1.6s;   /* 翻轉過程的總時長 */
+            --dog-video-width: 100%;
         }
 
         body {
+            background: #121212;
+            color: white;
+            font-family: sans-serif;
             display: flex;
             flex-direction: column;
             align-items: center;
-            background: #1a1a1a;
-            color: #eee;
             margin: 0;
-            padding: 20px;
+            padding: env(safe-area-inset-top) 10px;
         }
 
-        .stage {
+        .container {
             position: relative;
             width: 100%;
-            max-width: 800px;
-            perspective: 2000px; /* 增加透視深度，讓翻轉更真實 */
+            max-width: 600px;
+            /* 開啟 3D 空間 */
+            perspective: 1200px;
+            border-radius: 12px;
+            overflow: hidden;
+            -webkit-mask-image: -webkit-radial-gradient(white, black); /* 修正手機圓角裁切問題 */
         }
 
-        video { width: 100%; display: block; border-radius: 8px; }
+        video {
+            width: 100%;
+            display: block;
+            z-index: 1;
+        }
 
-        /* --- 模組化文字層：加入背面隱藏技術 --- */
-        .flip-text-module {
+        /* 文字層：模擬黑板物理屬性 */
+        .blackboard-text {
             position: absolute;
-            top: 48.5%; 
-            left: 54.8%;
+            /* 精確定位黑板中心區域 */
+            top: 50%;
+            left: 55%;
             width: 32%;
-            height: 42%;
+            height: 40%;
             
             display: flex;
             justify-content: center;
             align-items: center;
             text-align: center;
-            color: white;
-            font-size: 1.6rem;
+            
+            color: #FFFFFF;
+            font-size: 1.4rem;
             font-weight: bold;
+            text-shadow: 1px 1px 3px rgba(0,0,0,0.8);
+            
             pointer-events: none;
-
-            /* 核心修正 1：設定旋轉中心在黑板上緣 */
-            transform-origin: top center;
-
-            /* 核心修正 2：關鍵！背面朝向觀眾時隱藏文字 */
-            backface-visibility: hidden; 
+            z-index: 10;
+            
+            /* 修正手機渲染問題 */
             -webkit-backface-visibility: hidden;
+            backface-visibility: hidden;
+            transform-style: preserve-3d;
+            will-change: transform, opacity;
 
-            /* 初始狀態：完全倒貼在黑板背面 (旋轉 180度) */
-            transform: translate(-50%, -50%) rotateX(180deg);
+            /* 初始狀態：黑板背面朝前且完全透明 */
+            transform: translate(-50%, -50%) rotateX(-100deg) rotateY(15deg);
             opacity: 0;
         }
 
-        /* 核心修正 3：動畫路徑模擬黑板從背面翻到正面的軌跡 */
-        @keyframes preciseFlip {
-            0% {
-                opacity: 0;
-                transform: translate(-50%, -50%) rotateX(180deg);
+        /* 根據影片 dog_board.mp4 同步的關鍵影格 */
+        @keyframes boardSync {
+            0% { 
+                opacity: 0; 
+                transform: translate(-50%, -50%) rotateX(-100deg) rotateY(15deg) scale(0.9);
             }
-            /* 當翻轉過半 (90度) 之後，字體才會因為 backface-visibility 開始顯現 */
-            50% {
-                opacity: 1;
-                transform: translate(-50%, -50%) rotateX(90deg);
+            /* 1.2秒左右黑板翻過半，文字開始顯現 */
+            45% { 
+                opacity: 0; 
+                transform: translate(-51%, -52%) rotateX(-80deg) rotateY(15deg) scale(0.95);
             }
-            100% {
-                opacity: 1;
-                transform: translate(-50%, -50%) rotateX(0deg);
+            /* 1.8秒-2.2秒 翻轉動量最大的時刻 */
+            75% { 
+                opacity: 1; 
+                transform: translate(-53%, -54%) rotateX(-20deg) rotateY(10deg) scale(1.05);
+            }
+            /* 2.8秒 最終固定位置 */
+            100% { 
+                opacity: 1; 
+                transform: translate(-53%, -55%) rotateX(0deg) rotateY(8deg) scale(1.1);
             }
         }
 
-        .run-animation {
-            animation: preciseFlip var(--duration) linear forwards;
-            animation-delay: var(--start-time);
+        .animating {
+            animation: boardSync 3.2s linear forwards;
         }
 
-        .controls { margin-top: 20px; }
-        input { padding: 10px; border-radius: 4px; border: none; width: 250px; }
-        button { padding: 10px 20px; cursor: pointer; background: #f39c12; border: none; border-radius: 4px; color: white; }
+        /* UI 控制面板 */
+        .panel {
+            width: 100%;
+            max-width: 600px;
+            margin-top: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        input {
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid #444;
+            background: #222;
+            color: white;
+            font-size: 16px; /* 防止 iOS 自動放大 */
+        }
+
+        button {
+            padding: 15px;
+            background: #f1c40f;
+            color: #000;
+            border: none;
+            border-radius: 8px;
+            font-weight: bold;
+            cursor: pointer;
+        }
     </style>
 </head>
 <body>
 
-    <div class="stage">
-        <video id="dogVideo">
+    <div class="container">
+        <video id="dogVid" playsinline webkit-playsinline>
             <source src="dog_board.mp4" type="video/mp4">
         </video>
-        <div id="textLayer" class="flip-text-module"></div>
+        <div id="textLabel" class="blackboard-text"></div>
     </div>
 
-    <div class="controls">
-        <input type="text" id="userInput" placeholder="輸入要刻在黑板上的話...">
-        <button onclick="play()">播放動畫</button>
+    <div class="panel">
+        <input type="text" id="userInput" placeholder="輸入要顯示的文字...">
+        <button onclick="handlePlay()">播放同步動畫</button>
     </div>
 
     <script>
-        const v = document.getElementById('dogVideo');
-        const t = document.getElementById('textLayer');
+        const v = document.getElementById('dogVid');
+        const t = document.getElementById('textLabel');
         const i = document.getElementById('userInput');
 
-        function play() {
-            t.innerText = i.value || "這下對了吧！";
+        function handlePlay() {
+            // 更新文字內容
+            t.innerText = i.value || "汪！好厲害";
             
-            // 重置
-            t.classList.remove('run-animation');
+            // 徹底重置動畫狀態 (手機版 Chrome 關鍵)
+            t.classList.remove('animating');
+            v.pause();
             v.currentTime = 0;
-            void t.offsetWidth; // 強制重繪
             
-            // 執行
-            v.play();
-            t.classList.add('run-animation');
+            // 強制重繪
+            void t.offsetWidth;
+            
+            // 同步播放
+            v.play().catch(e => console.log("播放失敗:", e));
+            t.classList.add('animating');
         }
     </script>
 </body>
