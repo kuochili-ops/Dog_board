@@ -3,87 +3,83 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Blackboard Corner Fix</title>
+    <title>Manual Coordinate Capture</title>
     <style>
-        body { background: #000; color: white; margin: 0; display: flex; flex-direction: column; align-items: center; font-family: sans-serif; }
-        .stage { position: relative; width: 100%; max-width: 800px; }
-        video { width: 100%; display: block; }
-
-        /* 紅點追蹤 */
-        .dot {
+        body { background: #000; color: #00ff00; font-family: monospace; text-align: center; margin: 0; padding: 20px; }
+        .stage { position: relative; display: inline-block; cursor: crosshair; border: 2px solid #555; }
+        video { display: block; max-width: 100%; height: auto; }
+        .click-dot {
             position: absolute;
-            width: 10px;
-            height: 10px;
-            background: red;
-            border: 2px solid white;
+            width: 10px; height: 10px;
+            background: #ff0000;
             border-radius: 50%;
             transform: translate(-50%, -50%);
-            z-index: 100;
-            opacity: 0;
             pointer-events: none;
         }
-
-        /* 追蹤軌跡：對應 dog_board.mp4 物理動作 */
-        /* 起始點設在黑板平躺的位置，終點設在翻起後的邊角 */
-        @keyframes track-lt { 
-            0% { opacity: 0; top: 48%; left: 45%; }
-            45% { opacity: 1; top: 42%; left: 42%; } /* 1.5s 翻過一半 */
-            100% { opacity: 1; top: 38%; left: 40.5%; } /* 2.8s 最終位置 */
-        }
-        @keyframes track-rt { 
-            0% { opacity: 0; top: 48%; left: 55%; }
-            45% { opacity: 1; top: 44%; left: 63%; }
-            100% { opacity: 1; top: 42.5%; left: 68.5%; } 
-        }
-        @keyframes track-lb { 
-            0% { opacity: 0; top: 48%; left: 45%; }
-            45% { opacity: 1; top: 58%; left: 38%; }
-            100% { opacity: 1; top: 71%; left: 35.5%; } 
-        }
-        @keyframes track-rb { 
-            0% { opacity: 0; top: 48%; left: 55%; }
-            45% { opacity: 1; top: 62%; left: 68%; }
-            100% { opacity: 1; top: 73%; left: 71.5%; } 
-        }
-
-        .active .dot { animation-duration: 3.5s; animation-timing-function: linear; animation-fill-mode: forwards; }
-        .active #dot-lt { animation-name: track-lt; }
-        .active #dot-rt { animation-name: track-rt; }
-        .active #dot-lb { animation-name: track-lb; }
-        .active #dot-rb { animation-name: track-rb; }
-
-        .controls { padding: 20px; }
-        button { padding: 15px 30px; background: #27ae60; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; }
+        #result { margin-top: 20px; background: #222; padding: 15px; border-radius: 8px; word-break: break-all; color: #fff; }
+        .guide { margin-bottom: 10px; font-size: 1.1rem; }
     </style>
 </head>
 <body>
 
-    <div id="wrapper" class="stage">
-        <video id="v" playsinline webkit-playsinline muted>
+    <div class="guide">步驟：1. 暫停在黑板翻正時刻 | 2. 依序點擊四角 (左上→右上→左下→右下)</div>
+    
+    <div class="stage" id="stage">
+        <video id="v" controls>
             <source src="dog_board.mp4" type="video/mp4">
         </video>
-        
-        <div id="dot-lt" class="dot"></div>
-        <div id="dot-rt" class="dot"></div>
-        <div id="dot-lb" class="dot"></div>
-        <div id="dot-rb" class="dot"></div>
     </div>
 
-    <div class="controls">
-        <button onclick="startTest()">播放並檢查紅點</button>
-    </div>
+    <div id="result">點擊後此處將顯示座標數據...</div>
+    <button onclick="resetDots()" style="margin-top:10px; padding:10px;">重置點擊</button>
 
     <script>
-        const v = document.getElementById('v');
-        const w = document.getElementById('wrapper');
+        const stage = document.getElementById('stage');
+        const video = document.getElementById('v');
+        const result = document.getElementById('result');
+        let coords = [];
+        const labels = ["左上 (LT)", "右上 (RT)", "左下 (LB)", "右下 (RB)"];
 
-        function startTest() {
-            w.classList.remove('active');
-            v.pause();
-            v.currentTime = 0;
-            void w.offsetWidth; // 重新啟動 CSS 動畫
-            v.play();
-            w.classList.add('active');
+        stage.addEventListener('mousedown', function(e) {
+            if (coords.length >= 4) return;
+
+            const rect = stage.getBoundingClientRect();
+            // 計算相對於影片容器的百分比位置
+            const x = ((e.clientX - rect.left) / rect.width * 100).toFixed(2);
+            const y = ((e.clientY - rect.top) / rect.height * 100).toFixed(2);
+
+            coords.push({x, y});
+
+            // 放置紅點
+            const dot = document.createElement('div');
+            dot.className = 'click-dot';
+            dot.style.left = x + '%';
+            dot.style.top = y + '%';
+            stage.appendChild(dot);
+
+            updateResult();
+        });
+
+        function updateResult() {
+            if (coords.length === 0) {
+                result.innerText = "等待點擊...";
+                return;
+            }
+            let text = "已記錄座標：\n";
+            coords.forEach((c, i) => {
+                text += `${labels[i]}: { x: ${c.x}%, y: ${c.y}% }\n`;
+            });
+            if (coords.length === 4) {
+                text += "\n--- 請複製下方文字貼回給我 ---\n";
+                text += `FINAL_COORDS: LT(${coords[0].x},${coords[0].y}) RT(${coords[1].x},${coords[1].y}) LB(${coords[2].x},${coords[2].y}) RB(${coords[3].x},${coords[3].y})`;
+            }
+            result.innerText = text;
+        }
+
+        function resetDots() {
+            coords = [];
+            document.querySelectorAll('.click-dot').forEach(d => d.remove());
+            updateResult();
         }
     </script>
 </body>
