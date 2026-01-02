@@ -3,10 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Smart Word Wrap Sync</title>
+    <title>High-Speed Tracking Sync</title>
     <style>
-        body { background: #000; margin: 0; display: flex; flex-direction: column; align-items: center; color: white; font-family: "Arial Black", "Microsoft JhengHei", sans-serif; overflow: hidden; }
-        .stage { position: relative; width: 100%; max-width: 800px; }
+        body { background: #000; margin: 0; display: flex; flex-direction: column; align-items: center; color: white; font-family: "Arial Black", sans-serif; overflow: hidden; }
+        .stage { position: relative; width: 100%; max-width: 800px; perspective: 1000px; }
         video { width: 100%; display: block; }
         #textLayer {
             position: absolute;
@@ -19,7 +19,7 @@
             opacity: 0;
         }
         .ui { padding: 20px; width: 90%; max-width: 400px; text-align: center; }
-        textarea { width: 100%; padding: 12px; margin-bottom: 10px; border-radius: 8px; border: none; background: #222; color: #fff; height: 100px; font-size: 18px; text-align: center; }
+        textarea { width: 100%; padding: 12px; margin-bottom: 10px; border-radius: 8px; border: none; background: #222; color: #fff; height: 80px; text-align: center; font-size: 16px; }
         button { width: 100%; padding: 15px; background: #f1c40f; color: #000; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; }
     </style>
 </head>
@@ -33,8 +33,9 @@
     </div>
 
     <div class="ui">
-        <textarea id="userInput" placeholder="輸入文字...">2026 新年快樂</textarea>
-        <button onclick="startSync()">執行智慧分行同步</button>
+        <textarea id="userInput">I LOVE
+SERENA</textarea>
+        <button onclick="startSync()">啟動極速同步</button>
     </div>
 
     <script>
@@ -43,10 +44,13 @@
         const ctx = canvas.getContext('2d');
         const input = document.getElementById('userInput');
 
+        // 優化後的時間點位，增加 3.25s 的預測點以補償加速感
         const keyframes = [
             { t: 0.00, lt: [50, 90], rt: [50, 90], lb: [50, 90], rb: [50, 90], op: 0 },
             { t: 3.10, lt: [57.18, 65.03], rt: [72.93, 73.36], lb: [40.56, 71.44], rb: [55.44, 79.34], op: 0 },
             { t: 3.11, lt: [57.18, 65.03], rt: [72.93, 73.36], lb: [40.56, 71.44], rb: [55.44, 79.34], op: 1 },
+            // 新增一個插值補償點 (約 3.25s)，加速翻轉
+            { t: 3.25, lt: [53.13, 50.50], rt: [69.10, 60.91], lb: [42.22, 69.73], rb: [57.75, 78.68], op: 1 },
             { t: 3.42, lt: [49.08, 35.97], rt: [65.27, 48.36], lb: [43.88, 68.45], rb: [60.07, 78.92], op: 1 },
             { t: 3.95, lt: [44.03, 39.39], rt: [59.49, 51.14], lb: [43.88, 70.16], rb: [60.07, 80.41], op: 1 }
         ];
@@ -65,54 +69,23 @@
             return `matrix(${sx}, ${skewX}, ${skewY}, ${sy}, ${tx}, ${ty})`;
         }
 
-        function drawSmartText(text) {
+        function draw(text) {
             canvas.width = 800; canvas.height = 600;
             ctx.clearRect(0, 0, 800, 600);
+            let fontSize = 110;
+            const maxWidth = 700;
+            const lines = text.split('\n');
             
-            let fontSize = 120; // 初始大字級
-            const maxWidth = 720;
-            const maxHeight = 520;
-            let finalLines = [];
-
-            const calculate = (size) => {
-                ctx.font = `900 ${size}px sans-serif`;
-                let lines = [];
-                // 先處理手動換行，再處理自動單字換行
-                text.split('\n').forEach(manualLine => {
-                    let words = manualLine.split(' '); // 依空格切分英文單字
-                    let currentLine = '';
-                    
-                    for (let n = 0; n < words.length; n++) {
-                        let testLine = currentLine + (currentLine ? ' ' : '') + words[n];
-                        if (ctx.measureText(testLine).width > maxWidth && n > 0) {
-                            lines.push(currentLine);
-                            currentLine = words[n];
-                        } else {
-                            currentLine = testLine;
-                        }
-                    }
-                    lines.push(currentLine);
-                });
-                return lines;
-            };
-
-            finalLines = calculate(fontSize);
-            // 如果高度溢出，縮小字級再重新佈局
-            while ((finalLines.length * fontSize * 1.2 > maxHeight) && fontSize > 30) {
-                fontSize -= 5;
-                finalLines = calculate(fontSize);
-            }
-
             ctx.fillStyle = "white";
             ctx.textAlign = "center";
             ctx.textBaseline = "middle";
             ctx.font = `900 ${fontSize}px sans-serif`;
             
-            const lineHeight = fontSize * 1.15;
-            const totalH = finalLines.length * lineHeight;
+            const lineHeight = fontSize * 1.2;
+            const totalH = lines.length * lineHeight;
             const startY = (600 - totalH) / 2 + lineHeight / 2;
 
-            finalLines.forEach((line, i) => {
+            lines.forEach((line, i) => {
                 ctx.fillText(line.trim(), 400, startY + (i * lineHeight));
             });
         }
@@ -122,7 +95,12 @@
             let i = 0;
             while (i < keyframes.length - 1 && keyframes[i+1].t < now) i++;
             const k1 = keyframes[i], k2 = keyframes[i+1] || k1;
-            const p = (now - k1.t) / (k2.t - k1.t || 1);
+            
+            // 修正：在翻轉區間(3.11-3.42)使用平滑插值增加速度感
+            let p = (now - k1.t) / (k2.t - k1.t || 1);
+            if(k1.t >= 3.11 && k1.t < 3.42) {
+                p = Math.sin(p * Math.PI / 2); // 使用 Sine 曲線加速
+            }
 
             const lt = [lerp(k1.lt[0], k2.lt[0], p), lerp(k1.lt[1], k2.lt[1], p)];
             const rt = [lerp(k1.rt[0], k2.rt[0], p), lerp(k1.rt[1], k2.rt[1], p)];
@@ -136,7 +114,7 @@
         }
 
         function startSync() {
-            drawSmartText(input.value);
+            draw(input.value);
             video.currentTime = 0; video.play();
             requestAnimationFrame(sync);
         }
