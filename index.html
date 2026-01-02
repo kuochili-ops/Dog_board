@@ -3,30 +3,36 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Multi-Keyframe Tracker</title>
+    <title>Step-by-Step Tracker</title>
     <style>
-        body { background: #111; color: #0f0; font-family: monospace; display: flex; flex-direction: column; align-items: center; padding: 20px; }
-        .stage { position: relative; cursor: crosshair; border: 2px solid #444; margin-bottom: 10px; }
-        video { display: block; max-width: 100%; height: auto; }
-        .dot { position: absolute; width: 8px; height: 8px; background: red; border-radius: 50%; transform: translate(-50%, -50%); pointer-events: none; }
-        .controls { background: #222; padding: 15px; border-radius: 10px; width: 100%; max-width: 600px; }
-        #log { white-space: pre-wrap; background: #000; color: #fff; padding: 10px; margin-top: 10px; border: 1px solid #333; height: 150px; overflow-y: auto; font-size: 12px; }
-        button { padding: 10px 20px; margin: 5px; cursor: pointer; font-weight: bold; }
+        body { background: #111; color: #fff; font-family: monospace; display: flex; flex-direction: column; align-items: center; padding: 10px; }
+        .stage { position: relative; cursor: crosshair; border: 2px solid #0f0; margin-bottom: 10px; max-width: 90vw; }
+        video { display: block; width: 100%; height: auto; }
+        .dot { position: absolute; width: 8px; height: 8px; background: red; border: 1px solid white; border-radius: 50%; transform: translate(-50%, -50%); pointer-events: none; }
+        .controls { background: #222; padding: 15px; border-radius: 10px; width: 100%; max-width: 600px; text-align: center; }
+        #log { white-space: pre-wrap; background: #000; color: #0f0; padding: 10px; margin-top: 10px; border: 1px solid #333; height: 120px; overflow-y: auto; text-align: left; font-size: 11px; }
+        .btn-group { display: flex; justify-content: center; gap: 10px; margin-top: 10px; }
+        button { padding: 10px 15px; cursor: pointer; border: none; border-radius: 5px; font-weight: bold; }
+        .info { color: #aaa; font-size: 12px; margin-bottom: 5px; }
     </style>
 </head>
 <body>
 
+    <div class="info">指示：點擊影片暫停/播放。暫停時點選黑板四角（左上→右上→左下→右下）</div>
+    
     <div class="stage" id="stage">
-        <video id="v" controls>
+        <video id="v" playsinline>
             <source src="dog_board.mp4" type="video/mp4">
         </video>
     </div>
 
     <div class="controls">
-        <div>目前時間: <span id="timeDisplay">0.00</span>s</div>
-        <button onclick="recordFrame()" style="background: #27ae60; color: white;">● 紀錄此影格座標</button>
-        <button onclick="resetDots()" style="background: #e74c3c; color: white;">清除當前點</button>
-        <div id="log">尚未紀錄數據...</div>
+        <div>時間: <span id="timeDisplay">0.00</span>s | 已標註: <span id="dotCount">0</span>/4</div>
+        <div class="btn-group">
+            <button onclick="recordFrame()" style="background: #27ae60; color: white;">儲存此幀數據</button>
+            <button onclick="resetCurrentDots()" style="background: #555; color: white;">重選此幀</button>
+        </div>
+        <div id="log">等待紀錄...</div>
     </div>
 
     <script>
@@ -34,19 +40,28 @@
         const video = document.getElementById('v');
         const log = document.getElementById('log');
         const timeDisplay = document.getElementById('timeDisplay');
+        const dotCount = document.getElementById('dotCount');
         
         let currentDots = [];
         let allKeyframes = [];
 
+        // 點擊影片切換播放/暫停
+        video.onclick = () => { video.paused ? video.play() : video.pause(); };
         video.ontimeupdate = () => { timeDisplay.innerText = video.currentTime.toFixed(2); };
 
         stage.addEventListener('mousedown', function(e) {
             if (currentDots.length >= 4) return;
+            
+            // 點擊時自動暫停，方便精確點選
+            video.pause();
+
             const rect = stage.getBoundingClientRect();
             const x = ((e.clientX - rect.left) / rect.width * 100).toFixed(2);
             const y = ((e.clientY - rect.top) / rect.height * 100).toFixed(2);
             
             currentDots.push({x, y});
+            dotCount.innerText = currentDots.length;
+
             const div = document.createElement('div');
             div.className = 'dot';
             div.style.left = x + '%';
@@ -63,16 +78,19 @@
             };
             allKeyframes.push(frameData);
             updateLog();
-            resetDots();
+            resetCurrentDots();
+            // 存完後提醒使用者可以繼續播放
+            log.scrollTop = log.scrollHeight;
         }
 
-        function resetDots() {
+        function resetCurrentDots() {
             currentDots = [];
+            dotCount.innerText = "0";
             document.querySelectorAll('.dot').forEach(d => d.remove());
         }
 
         function updateLog() {
-            log.innerText = "請複製下方數據給 AI：\n\n" + JSON.stringify(allKeyframes, null, 2);
+            log.innerText = "請複製此 JSON 貼給 AI：\n" + JSON.stringify(allKeyframes, null, 2);
         }
     </script>
 </body>
