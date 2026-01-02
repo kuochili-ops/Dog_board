@@ -3,51 +3,47 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dynamic Blackboard Sync</title>
+    <title>White Plate Tracking Test</title>
     <style>
         body { background: #000; margin: 0; display: flex; flex-direction: column; align-items: center; color: white; font-family: sans-serif; }
         .stage { position: relative; width: 100%; max-width: 800px; }
         video { width: 100%; display: block; }
 
-        /* 文字容器：使用 3D 透視模式 */
-        #textSticker {
+        /* 白色測試塊：直接填滿影片容器，依賴 clip-path 變形 */
+        #whitePlate {
             position: absolute;
             top: 0; left: 0; width: 100%; height: 100%;
             z-index: 10;
             pointer-events: none;
+            background: rgba(255, 255, 255, 0.8); /* 80% 不透明白，方便看透後方的黑板 */
             opacity: 0;
-            will-change: clip-path, transform;
-            transform-style: preserve-3d;
+            will-change: clip-path, opacity;
         }
 
-        .controls { padding: 20px; width: 90%; max-width: 400px; text-align: center; }
-        input { width: 100%; padding: 12px; margin-bottom: 10px; border-radius: 8px; border: none; background: #222; color: #fff; }
-        button { width: 100%; padding: 12px; background: #f1c40f; color: #000; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; }
+        .controls { padding: 20px; }
+        button { padding: 15px 30px; background: #fff; color: #000; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; }
     </style>
 </head>
 <body>
 
     <div class="stage">
-        <video id="v" playsinline webkit-playsinline muted>
+        <video id="v" playsinline muted>
             <source src="dog_board.mp4" type="video/mp4">
         </video>
-        <canvas id="textSticker"></canvas>
+        <div id="whitePlate"></div>
     </div>
 
     <div class="controls">
-        <input type="text" id="userInput" placeholder="輸入要同步的文字...">
-        <button onclick="startSync()">啟動物理同步播放</button>
+        <button onclick="startTest()">開始對位測試</button>
     </div>
 
     <script>
         const video = document.getElementById('v');
-        const canvas = document.getElementById('textSticker');
-        const ctx = canvas.getContext('2d');
-        const input = document.getElementById('userInput');
+        const plate = document.getElementById('whitePlate');
 
-        // 依據你提供的數據優化後的關鍵幀
+        // 使用你提供的四組關鍵幀數據
         const keyframes = [
-            { t: 0.00, lt: [50, 90], rt: [50, 90], lb: [50, 90], rb: [50, 90], op: 0 }, 
+            { t: 0.00, lt: [50, 90], rt: [50, 90], lb: [50, 90], rb: [50, 90], op: 0 },
             { t: 2.57, lt: [57.18, 65.03], rt: [72.93, 73.36], lb: [40.56, 71.44], rb: [55.44, 79.34], op: 1 },
             { t: 2.96, lt: [57.90, 55.41], rt: [73.65, 65.46], lb: [40.70, 71.01], rb: [56.89, 78.49], op: 1 },
             { t: 3.42, lt: [49.08, 35.97], rt: [65.27, 48.36], lb: [43.88, 68.45], rb: [60.07, 78.92], op: 1 },
@@ -66,36 +62,22 @@
             const k1 = keyframes[i];
             const k2 = keyframes[i+1] || k1;
             
-            // 使用平滑曲線處理加速感
-            const t = (now - k1.t) / (k2.t - k1.t || 1);
-            const ease = t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t; 
+            const progress = (now - k1.t) / (k2.t - k1.t || 1);
+            
+            // 使用你的原始點位進行線性插值
+            const lt = [lerp(k1.lt[0], k2.lt[0], progress), lerp(k1.lt[1], k2.lt[1], progress)];
+            const rt = [lerp(k1.rt[0], k2.rt[0], progress), lerp(k1.rt[1], k2.rt[1], progress)];
+            const lb = [lerp(k1.lb[0], k2.lb[0], progress), lerp(k1.lb[1], k2.lb[1], progress)];
+            const rb = [lerp(k1.rb[0], k2.rb[0], progress), lerp(k1.rb[1], k2.rb[1], progress)];
 
-            const lt = [lerp(k1.lt[0], k2.lt[0], ease), lerp(k1.lt[1], k2.lt[1], ease)];
-            const rt = [lerp(k1.rt[0], k2.rt[0], ease), lerp(k1.rt[1], k2.rt[1], ease)];
-            const lb = [lerp(k1.lb[0], k2.lb[0], ease), lerp(k1.lb[1], k2.lb[1], ease)];
-            const rb = [lerp(k1.rb[0], k2.rb[0], ease), lerp(k1.rb[1], k2.rb[1], ease)];
-
-            canvas.style.opacity = lerp(k1.op, k2.op, t);
-            // 透過 clip-path 強制鎖定四角邊界
-            canvas.style.clipPath = `polygon(${lt[0]}% ${lt[1]}%, ${rt[0]}% ${rt[1]}%, ${rb[0]}% ${rb[1]}%, ${lb[0]}% ${lb[1]}%)`;
+            plate.style.opacity = lerp(k1.op, k2.op, progress);
+            // 核心：直接將白色區塊的四個頂點對準你點擊的座標
+            plate.style.clipPath = `polygon(${lt[0]}% ${lt[1]}%, ${rt[0]}% ${rt[1]}%, ${rb[0]}% ${rb[1]}%, ${lb[0]}% ${lb[1]}%)`;
 
             if (!video.paused && !video.ended) requestAnimationFrame(update);
         }
 
-        function draw(text) {
-            canvas.width = canvas.clientWidth * 2;
-            canvas.height = canvas.clientHeight * 2;
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            ctx.fillStyle = "white";
-            ctx.font = "bold 100px sans-serif";
-            ctx.textAlign = "center";
-            ctx.textBaseline = "middle";
-            // 文字繪製在黑板區域的中間位置
-            ctx.fillText(text, canvas.width * 0.55, canvas.height * 0.6);
-        }
-
-        function startSync() {
-            draw(input.value || "同步校準中");
+        function startTest() {
             video.currentTime = 0;
             video.play();
             requestAnimationFrame(update);
