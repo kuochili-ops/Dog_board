@@ -3,162 +3,106 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Dog Blackboard Precise Tracking</title>
+    <title>Dog Blackboard Pro Sync</title>
     <style>
-        :root {
-            --video-w: 100%;
-        }
+        body { background: #000; color: #fff; margin: 0; display: flex; flex-direction: column; align-items: center; font-family: sans-serif; }
+        .stage { position: relative; width: 100%; max-width: 800px; perspective: 1500px; }
+        video { width: 100%; display: block; }
 
-        body {
-            background: #111;
-            margin: 0;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            color: white;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica;
-        }
-
-        .container {
-            position: relative;
-            width: 100%;
-            max-width: 600px;
-            overflow: hidden;
-            /* 模擬攝影機焦距 */
-            perspective: 800px; 
-            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
-        }
-
-        video {
-            width: 100%;
-            display: block;
-            z-index: 1;
-        }
-
-        /* --- 核心：黑板文字模組 --- */
-        #blackboardLabel {
+        /* 文字貼紙模組 */
+        #textSticker {
             position: absolute;
-            /* 逆向定位：最終狀態的黑板中心 */
-            top: 54%;
-            left: 55%;
-            width: 34%;
-            height: 44%;
+            /* 定位基準：黑板在影片中的最終中心點 */
+            top: 52%; 
+            left: 56%;
+            width: 32%;
+            height: 40%;
             
             display: flex;
             justify-content: center;
             align-items: center;
             text-align: center;
+            color: #fff;
+            font-size: 1.6rem;
+            font-weight: 900;
             
-            color: rgba(255, 255, 255, 0.95);
-            font-size: 1.5rem;
-            font-weight: 800;
-            line-height: 1.2;
-            
-            /* 3D 渲染優化 */
+            /* 效能與渲染優化 */
             pointer-events: none;
-            z-index: 10;
             transform-style: preserve-3d;
             backface-visibility: hidden;
             -webkit-backface-visibility: hidden;
+            will-change: transform, opacity;
             
-            /* 初始狀態：黑板水平，完全不可見 */
+            /* 初始狀態：完全倒貼在背面 */
+            transform: translate(-50%, -50%) rotateX(-105deg);
             opacity: 0;
-            transform-origin: top center;
-            transform: translate(-50%, -50%) rotateX(-100deg);
         }
 
-        /* 根據影片逐幀紀錄的動畫 */
-        @keyframes boardTracker {
-            0% {
-                opacity: 0;
-                transform: translate(-50%, -40%) rotateX(-95deg) scale(0.8);
+        /* 逆向追蹤黑板運動軌跡 */
+        @keyframes stickerFollow {
+            0% { 
+                opacity: 0; 
+                transform: translate(-50%, -35%) rotateX(-105deg) rotateY(10deg); 
             }
-            /* 1.5s: 狗狗叼起一半，呈現側向梯形 */
-            45% {
+            /* 1.2s - 狗狗叼起瞬間，黑板開始有仰角 */
+            40% { 
+                opacity: 0.1;
+                transform: translate(-51%, -45%) rotateX(-85deg) rotateY(15deg) rotateZ(-5deg); 
+            }
+            /* 2.0s - 翻轉至中間，透視感最強 */
+            70% { 
                 opacity: 1;
-                transform: translate(-51%, -50%) rotateX(-60deg) rotateY(18deg) rotateZ(-3deg) scale(0.95);
+                transform: translate(-53%, -54%) rotateX(-25deg) rotateY(18deg) rotateZ(-2deg); 
             }
-            /* 2.2s: 翻轉動力最強，產生輕微形變 */
-            75% {
+            /* 2.8s - 最終定格：左高右低的透視形狀 */
+            100% { 
                 opacity: 1;
-                transform: translate(-53%, -54%) rotateX(-15deg) rotateY(12deg) rotateZ(-1deg) scale(1.05);
-            }
-            /* 2.8s: 最終定格位置 (對應影片最後一幀) */
-            100% {
-                opacity: 1;
-                /* 最終黑板是左高右低的透視角度 */
-                transform: translate(-53.5%, -55%) rotateX(0deg) rotateY(12.5deg) rotateZ(0deg) scale(1.1);
+                transform: translate(-54%, -56%) rotateX(0deg) rotateY(16deg) rotateZ(0deg); 
             }
         }
 
-        .playing {
-            animation: boardTracker 3.5s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+        .animating {
+            animation: stickerFollow 3.5s linear forwards;
         }
 
-        .panel {
-            width: 90%;
-            max-width: 400px;
-            padding: 20px;
-            display: flex;
-            flex-direction: column;
-            gap: 15px;
-        }
-
-        input {
-            padding: 15px;
-            background: #222;
-            border: 1px solid #444;
-            color: white;
-            border-radius: 8px;
-            font-size: 16px;
-        }
-
-        button {
-            padding: 15px;
-            background: #f1c40f;
-            border: none;
-            border-radius: 8px;
-            font-weight: bold;
-            font-size: 16px;
-        }
+        .ui { padding: 20px; width: 100%; max-width: 400px; box-sizing: border-box; }
+        input { width: 100%; padding: 15px; margin-bottom: 10px; border-radius: 10px; border: none; background: #222; color: #fff; font-size: 16px; }
+        button { width: 100%; padding: 15px; background: #FFD700; color: #000; border: none; border-radius: 10px; font-weight: bold; cursor: pointer; }
     </style>
 </head>
 <body>
 
-    <div class="container">
-        <video id="dogVideo" playsinline webkit-playsinline muted>
+    <div class="stage">
+        <video id="v" playsinline webkit-playsinline muted>
             <source src="dog_board.mp4" type="video/mp4">
         </video>
-        <div id="blackboardLabel"></div>
+        <div id="textSticker"></div>
     </div>
 
-    <div class="panel">
-        <input type="text" id="userInput" placeholder="輸入要刻在黑板上的話...">
-        <button id="btnPlay">執行同步翻轉</button>
+    <div class="ui">
+        <input type="text" id="i" placeholder="輸入要寫的話...">
+        <button onclick="play()">執行同步翻轉</button>
     </div>
 
     <script>
-        const v = document.getElementById('dogVideo');
-        const l = document.getElementById('blackboardLabel');
-        const i = document.getElementById('userInput');
-        const b = document.getElementById('btnPlay');
+        const video = document.getElementById('v');
+        const sticker = document.getElementById('textSticker');
+        const input = document.getElementById('i');
 
-        b.onclick = () => {
-            l.innerText = i.value || "這下對了吧！";
+        function play() {
+            sticker.innerText = input.value || "這下對了吧！";
             
-            // 徹底清除狀態
-            l.classList.remove('playing');
-            v.pause();
-            v.currentTime = 0;
+            // 重置
+            sticker.classList.remove('animating');
+            video.pause();
+            video.currentTime = 0;
             
-            // 強制重繪 (Reflow) 以重啟動畫
-            void l.offsetWidth; 
+            void sticker.offsetWidth; // 觸發重繪
             
-            // 延遲極短時間啟動以確保同步
-            v.play().then(() => {
-                l.classList.add('playing');
-            });
-        };
+            // 播放
+            video.play();
+            sticker.classList.add('animating');
+        }
     </script>
 </body>
 </html>
