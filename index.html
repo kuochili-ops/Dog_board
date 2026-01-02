@@ -3,15 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Better Layout Blackboard</title>
+    <title>Smart Word Wrap Sync</title>
     <style>
-        body { background: #000; margin: 0; display: flex; flex-direction: column; align-items: center; color: white; font-family: "Microsoft JhengHei", "PingFang TC", sans-serif; overflow: hidden; }
+        body { background: #000; margin: 0; display: flex; flex-direction: column; align-items: center; color: white; font-family: "Arial Black", "Microsoft JhengHei", sans-serif; overflow: hidden; }
         .stage { position: relative; width: 100%; max-width: 800px; }
         video { width: 100%; display: block; }
         #textLayer {
             position: absolute;
             top: 0; left: 0;
-            width: 400px; height: 300px;
+            width: 800px; height: 600px;
             z-index: 10;
             pointer-events: none;
             will-change: transform, opacity;
@@ -19,7 +19,7 @@
             opacity: 0;
         }
         .ui { padding: 20px; width: 90%; max-width: 400px; text-align: center; }
-        textarea { width: 100%; padding: 12px; margin-bottom: 10px; border-radius: 8px; border: none; background: #222; color: #fff; height: 80px; font-size: 16px; }
+        textarea { width: 100%; padding: 12px; margin-bottom: 10px; border-radius: 8px; border: none; background: #222; color: #fff; height: 100px; font-size: 18px; text-align: center; }
         button { width: 100%; padding: 15px; background: #f1c40f; color: #000; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; }
     </style>
 </head>
@@ -33,10 +33,9 @@
     </div>
 
     <div class="ui">
-        <textarea id="userInput" placeholder="輸入文字 (支援自動優化分行)...">這是一段文字測試，
-確認分行與間距
-是否更加美觀。</textarea>
-        <button onclick="startSync()">執行優化版同步</button>
+        <textarea id="userInput" placeholder="輸入文字...">I LOVE
+SERENA</textarea>
+        <button onclick="startSync()">執行智慧分行同步</button>
     </div>
 
     <script>
@@ -67,56 +66,55 @@
             return `matrix(${sx}, ${skewX}, ${skewY}, ${sy}, ${tx}, ${ty})`;
         }
 
-        function drawProfessionalText(text) {
-            canvas.width = 800; canvas.height = 600; // 提高繪圖解析度
+        function drawSmartText(text) {
+            canvas.width = 800; canvas.height = 600;
             ctx.clearRect(0, 0, 800, 600);
             
-            let fontSize = 90; // 放大起始字體
-            const maxWidth = 700; // 設定左右邊距
-            const maxHeight = 500; // 設定上下邊距
-            let lines = [];
+            let fontSize = 120; // 初始大字級
+            const maxWidth = 720;
+            const maxHeight = 520;
+            let finalLines = [];
 
-            // 支援手動換行 \n
-            const sourceLines = text.split('\n');
-
-            const calculateLayout = (size) => {
-                ctx.font = `900 ${size}px "Microsoft JhengHei"`;
-                let finalLines = [];
-                sourceLines.forEach(sLine => {
-                    let words = sLine.split('');
+            const calculate = (size) => {
+                ctx.font = `900 ${size}px sans-serif`;
+                let lines = [];
+                // 先處理手動換行，再處理自動單字換行
+                text.split('\n').forEach(manualLine => {
+                    let words = manualLine.split(' '); // 依空格切分英文單字
                     let currentLine = '';
-                    for (let char of words) {
-                        let test = currentLine + char;
-                        if (ctx.measureText(test).width > maxWidth) {
-                            finalLines.push(currentLine);
-                            currentLine = char;
+                    
+                    for (let n = 0; n < words.length; n++) {
+                        let testLine = currentLine + (currentLine ? ' ' : '') + words[n];
+                        if (ctx.measureText(testLine).width > maxWidth && n > 0) {
+                            lines.push(currentLine);
+                            currentLine = words[n];
                         } else {
-                            currentLine = test;
+                            currentLine = testLine;
                         }
                     }
-                    finalLines.push(currentLine);
+                    lines.push(currentLine);
                 });
-                return finalLines;
+                return lines;
             };
 
-            lines = calculateLayout(fontSize);
-            // 縮放演算法：同時檢查寬度與總高度
-            while ((lines.length * fontSize * 1.3 > maxHeight) && fontSize > 24) {
-                fontSize -= 4;
-                lines = calculateLayout(fontSize);
+            finalLines = calculate(fontSize);
+            // 如果高度溢出，縮小字級再重新佈局
+            while ((finalLines.length * fontSize * 1.2 > maxHeight) && fontSize > 30) {
+                fontSize -= 5;
+                finalLines = calculate(fontSize);
             }
 
             ctx.fillStyle = "white";
             ctx.textAlign = "center";
             ctx.textBaseline = "middle";
-            ctx.font = `900 ${fontSize}px "Microsoft JhengHei"`;
+            ctx.font = `900 ${fontSize}px sans-serif`;
             
-            const lineHeight = fontSize * 1.25; // 設定舒適的行高
-            const totalH = lines.length * lineHeight;
+            const lineHeight = fontSize * 1.15;
+            const totalH = finalLines.length * lineHeight;
             const startY = (600 - totalH) / 2 + lineHeight / 2;
 
-            lines.forEach((line, i) => {
-                ctx.fillText(line, 400, startY + (i * lineHeight));
+            finalLines.forEach((line, i) => {
+                ctx.fillText(line.trim(), 400, startY + (i * lineHeight));
             });
         }
 
@@ -133,13 +131,13 @@
             const rb = [lerp(k1.rb[0], k2.rb[0], p), lerp(k1.rb[1], k2.rb[1], p)];
 
             canvas.style.opacity = lerp(k1.op, k2.op, p);
-            canvas.style.transform = getTransform(800, 600, lt, rt, lb, rb); // 這裡配合 Canvas 解析度修改
+            canvas.style.transform = getTransform(800, 600, lt, rt, lb, rb);
 
             if (!video.paused && !video.ended) requestAnimationFrame(sync);
         }
 
         function startSync() {
-            drawProfessionalText(input.value);
+            drawSmartText(input.value);
             video.currentTime = 0; video.play();
             requestAnimationFrame(sync);
         }
