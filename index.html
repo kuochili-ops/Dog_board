@@ -3,169 +3,125 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Layered Mesh Doggy</title>
+    <title>AI Dog Flip-Board Pro</title>
     <style>
-        body { margin: 0; background: #1a1a1a; overflow: hidden; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; }
-        .canvas-container { position: relative; perspective: 1000px; }
-        canvas { max-width: 100%; max-height: 80vh; }
-        
-        .pendant {
-            position: absolute; top: 42%; left: 50%;
-            transform-origin: top center;
-            transform: translateX(-50%) translateY(120px) rotateX(-85deg);
-            opacity: 0; pointer-events: none;
-            transition: transform 1.2s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.5s;
+        :root {
+            --font-color: #ffffff;
+            /* 定義影片中黑板完全翻開的時間點 */
+            --flip-start: 1.5s;
+            --flip-end: 3.0s;
         }
-        .pendant.active { transform: translateX(-50%) translateY(35px) rotateX(0deg); opacity: 1; }
-        
-        .rope { width: 30px; height: 15px; border-left: 2px solid #bda27e; border-right: 2px solid #bda27e; margin: 0 auto; }
-        .blackboard { width: 160px; min-height: 90px; background: #2c3e50; border: 4px solid #4e342e; border-radius: 6px; display: flex; justify-content: center; align-items: center; box-shadow: 0 10px 20px rgba(0,0,0,0.5); }
-        .text { color: white; font-weight: bold; padding: 10px; text-align: center; font-family: sans-serif; }
 
-        .ui { position: fixed; bottom: 30px; display: flex; gap: 10px; }
-        input { padding: 12px 20px; border-radius: 25px; border: none; width: 200px; }
-        button { padding: 12px 25px; border-radius: 25px; border: none; background: #ff4757; color: white; font-weight: bold; cursor: pointer; }
+        body {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background-color: #1a1a1a;
+            color: white;
+            font-family: "PingFang TC", "Microsoft JhengHei", sans-serif;
+            margin: 0;
+            padding: 20px;
+        }
+
+        .video-container {
+            position: relative;
+            width: 100%;
+            max-width: 800px;
+            perspective: 1200px; /* 建立 3D 空間感 */
+            border-radius: 12px;
+            overflow: hidden;
+        }
+
+        video {
+            width: 100%;
+            display: block;
+        }
+
+        /* --- 核心：隨角度變化的文字層 --- */
+        .chalkboard-text {
+            position: absolute;
+            top: 48%; /* 根據影片黑板位置 */
+            left: 55%;
+            width: 32%;
+            height: 40%;
+            
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            box-sizing: border-box;
+            
+            color: var(--font-color);
+            font-size: 1.5rem;
+            font-weight: bold;
+            text-shadow: 1px 1px 3px rgba(0,0,0,0.7);
+            
+            /* 設置旋轉中心點在黑板頂部，模擬叼起的動作 */
+            transform-origin: top center;
+            pointer-events: none;
+            opacity: 0;
+        }
+
+        /* 模擬黑板從平放到翻起的 3D 動作 */
+        @keyframes flipWithDog {
+            0% {
+                opacity: 0;
+                transform: translate(-50%, -50%) rotateX(-90deg) rotateY(20deg);
+            }
+            30% {
+                opacity: 1; /* 翻到一半時字體變清晰 */
+                transform: translate(-50%, -50%) rotateX(-60deg) rotateY(15deg);
+            }
+            100% {
+                opacity: 1;
+                transform: translate(-50%, -50%) rotateX(0deg) rotateY(0deg);
+            }
+        }
+
+        .animate-text {
+            /* 動畫時長與影片翻牌動作同步 */
+            animation: flipWithDog 1.5s ease-out forwards;
+            animation-delay: 1.5s; /* 等待狗狗開始叼牌的時間 */
+        }
+
+        .controls { margin-top: 20px; display: flex; gap: 10px; }
+        input { padding: 12px; border-radius: 8px; border: none; width: 250px; }
+        button { padding: 12px 24px; background: #e74c3c; color: white; border: none; border-radius: 8px; cursor: pointer; }
     </style>
 </head>
 <body>
 
-<div class="canvas-container">
-    <canvas id="canvas"></canvas>
-    <div id="pendant" class="pendant">
-        <div class="rope"></div>
-        <div class="blackboard">
-            <div id="displayText" class="text">哈囉</div>
-        </div>
+    <div class="video-container">
+        <video id="dogVideo">
+            <source src="dog_board.mp4" type="video/mp4">
+        </video>
+
+        <div id="msgOverlay" class="chalkboard-text"></div>
     </div>
-</div>
 
-<div class="ui">
-    <input type="text" id="textInput" placeholder="讓狗狗銜起...">
-    <button onclick="triggerAction()">送出</button>
-</div>
+    <div class="controls">
+        <input type="text" id="userInput" placeholder="輸入要顯示的訊息...">
+        <button onclick="startAction()">播放翻牌效果</button>
+    </div>
 
-<script>
-class DogMeshEngine {
-    constructor(canvas, dogSrc, bgSrc, rows, cols) {
-        this.canvas = canvas;
-        this.ctx = canvas.getContext('2d');
-        this.rows = rows;
-        this.cols = cols;
-        
-        this.dogImg = new Image();
-        this.bgImg = new Image();
-        this.dogImg.src = dogSrc;
-        this.bgImg.src = bgSrc;
-        
-        this.points = [];
-        this.progress = 0;
-        this.targetProgress = 0;
+    <script>
+        const video = document.getElementById('dogVideo');
+        const overlay = document.getElementById('msgOverlay');
+        const input = document.getElementById('userInput');
 
-        Promise.all([
-            new Promise(res => this.dogImg.onload = res),
-            new Promise(res => this.bgImg.onload = res)
-        ]).then(() => {
-            this.canvas.width = this.bgImg.width;
-            this.canvas.height = this.bgImg.height;
-            this.initMesh();
-            this.animate();
-        });
-    }
-
-    initMesh() {
-        for (let r = 0; r <= this.rows; r++) {
-            for (let c = 0; c <= this.cols; c++) {
-                const x = (c / this.cols) * this.dogImg.width;
-                const y = (r / this.rows) * this.dogImg.height;
-                this.points.push({ ox: x, oy: y, x: x, y: y });
-            }
-        }
-    }
-
-    update() {
-        this.progress += (this.targetProgress - this.progress) * 0.12;
-        const maxOffset = this.dogImg.height / 3.5;
-        const expansion = 45;
-
-        this.points.forEach((p, i) => {
-            const r = Math.floor(i / (this.cols + 1));
-            const c = i % (this.cols + 1);
+        function startAction() {
+            // 1. 更新訊息
+            overlay.innerText = input.value || "汪！好厲害";
             
-            // 邊界保護邏輯：讓邊緣固定 [cite: 2025-12-28]
-            const marginWeight = Math.sin((r / this.rows) * Math.PI) * Math.sin((c / this.cols) * Math.PI);
-            const verticalWeight = (r < 15 ? Math.pow(1 - (r / 15), 2) : 0) * marginWeight;
+            // 2. 清除舊動畫
+            overlay.classList.remove('animate-text');
+            void overlay.offsetWidth; // 強制重繪 (Reflow)
             
-            p.y = p.oy + (maxOffset * this.progress * verticalWeight);
-            const centerX = this.dogImg.width / 2;
-            const distFromCenter = (p.ox - centerX) / centerX;
-            p.x = p.ox + (expansion * this.progress * verticalWeight * distFromCenter);
-        });
-    }
-
-    render() {
-        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-        
-        // 1. 畫底層靜態背景 [cite: 2025-12-28]
-        this.ctx.drawImage(this.bgImg, 0, 0);
-
-        // 2. 畫變形的狗狗網格 [cite: 2025-12-28]
-        for (let r = 0; r < this.rows; r++) {
-            for (let c = 0; c < this.cols; c++) {
-                this.drawDogTriangle(r, c, true);
-                this.drawDogTriangle(r, c, false);
-            }
+            // 3. 播放影片並觸發動畫
+            video.currentTime = 0;
+            video.play();
+            overlay.classList.add('animate-text');
         }
-    }
-
-    drawDogTriangle(r, c, upper) {
-        const i1 = r * (this.cols + 1) + c, i2 = i1 + 1, i3 = (r + 1) * (this.cols + 1) + c, i4 = i3 + 1;
-        const tri = upper ? [this.points[i1], this.points[i2], this.points[i3]] : [this.points[i2], this.points[i4], this.points[i3]];
-        
-        this.ctx.save();
-        this.ctx.beginPath();
-        this.ctx.moveTo(tri[0].x, tri[0].y);
-        this.ctx.lineTo(tri[1].x, tri[1].y);
-        this.ctx.lineTo(tri[2].x, tri[2].y);
-        this.ctx.closePath();
-        this.ctx.clip();
-
-        const x0 = tri[0].x, y0 = tri[0].y, x1 = tri[1].x, y1 = tri[1].y, x2 = tri[2].x, y2 = tri[2].y;
-        const u0 = tri[0].ox, v0 = tri[0].oy, u1 = tri[1].ox, v1 = tri[1].oy, u2 = tri[2].ox, v2 = tri[2].oy;
-        const det = u0 * (v1 - v2) + u1 * (v2 - v0) + u2 * (v0 - v1);
-        this.ctx.setTransform(
-            (x0 * (v1 - v2) + x1 * (v2 - v0) + x2 * (v0 - v1)) / det, (y0 * (v1 - v2) + y1 * (v2 - v0) + y2 * (v0 - v1)) / det,
-            (x0 * (u2 - u1) + x1 * (u0 - u2) + x2 * (u1 - u0)) / det, (y0 * (u2 - u1) + y1 * (u0 - u2) + y2 * (u1 - u0)) / det,
-            (x0 * (u1 * v2 - u2 * v1) + x1 * (u2 * v0 - u0 * v2) + x2 * (u0 * v1 - u1 * v0)) / det, (y0 * (u1 * v2 - u2 * v1) + y1 * (u2 * v0 - u0 * v2) + y2 * (u0 * v1 - u1 * v0)) / det
-        );
-        this.ctx.drawImage(this.dogImg, 0, 0);
-        this.ctx.restore();
-    }
-
-    animate() {
-        this.update();
-        this.render();
-        requestAnimationFrame(() => this.animate());
-    }
-}
-
-const engine = new DogMeshEngine(document.getElementById('canvas'), 'IMG_5730.png', 'IMG_6401.jpeg', 20, 20);
-const pendant = document.getElementById('pendant');
-const display = document.getElementById('displayText');
-const input = document.getElementById('textInput');
-
-function triggerAction() {
-    if(!input.value) return;
-    display.innerText = input.value;
-    engine.targetProgress = 1; 
-    
-    setTimeout(() => {
-        pendant.classList.add('active'); 
-        setTimeout(() => {
-            engine.targetProgress = 0; 
-            pendant.style.transform = "translateX(-50%) translateY(0px) rotateX(0deg)";
-        }, 800);
-    }, 400);
-}
-</script>
+    </script>
 </body>
 </html>
