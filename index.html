@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Auto-Layout Blackboard Sync</title>
+    <title>Delayed Text Blackboard Sync</title>
     <style>
         body { background: #000; margin: 0; display: flex; flex-direction: column; align-items: center; color: white; font-family: "Microsoft JhengHei", sans-serif; overflow: hidden; }
         .stage { position: relative; width: 100%; max-width: 800px; }
@@ -11,12 +11,12 @@
         #textLayer {
             position: absolute;
             top: 0; left: 0;
-            width: 400px; height: 300px; /* 畫布比例 4:3 */
+            width: 400px; height: 300px;
             z-index: 10;
             pointer-events: none;
             will-change: transform, opacity;
             transform-origin: 0 0;
-            opacity: 0;
+            opacity: 0; /* 預設隱藏 */
         }
         .ui { padding: 20px; width: 90%; max-width: 400px; text-align: center; }
         textarea { width: 100%; padding: 12px; margin-bottom: 10px; border-radius: 8px; border: none; background: #222; color: #fff; height: 80px; resize: none; }
@@ -33,8 +33,8 @@
     </div>
 
     <div class="ui">
-        <textarea id="userInput" placeholder="輸入要寫的話（支援多字換行）..."></textarea>
-        <button onclick="startSync()">啟動自動佈局同步</button>
+        <textarea id="userInput" placeholder="輸入文字..."></textarea>
+        <button onclick="startSync()">啟動 (3.11s 出現)</button>
     </div>
 
     <script>
@@ -43,10 +43,11 @@
         const ctx = canvas.getContext('2d');
         const input = document.getElementById('userInput');
 
+        // 修改時間軸：在 3.11 秒之前透明度為 0
         const keyframes = [
             { t: 0.00, lt: [50, 90], rt: [50, 90], lb: [50, 90], rb: [50, 90], op: 0 },
-            { t: 2.57, lt: [57.18, 65.03], rt: [72.93, 73.36], lb: [40.56, 71.44], rb: [55.44, 79.34], op: 1 },
-            { t: 2.96, lt: [57.90, 55.41], rt: [73.65, 65.46], lb: [40.70, 71.01], rb: [56.89, 78.49], op: 1 },
+            { t: 3.10, lt: [57.18, 65.03], rt: [72.93, 73.36], lb: [40.56, 71.44], rb: [55.44, 79.34], op: 0 },
+            { t: 3.11, lt: [57.18, 65.03], rt: [72.93, 73.36], lb: [40.56, 71.44], rb: [55.44, 79.34], op: 1 }, // 瞬間出現
             { t: 3.42, lt: [49.08, 35.97], rt: [65.27, 48.36], lb: [43.88, 68.45], rb: [60.07, 78.92], op: 1 },
             { t: 3.95, lt: [44.03, 39.39], rt: [59.49, 51.14], lb: [43.88, 70.16], rb: [60.07, 80.41], op: 1 }
         ];
@@ -58,7 +59,6 @@
             const dw = container.width / 100;
             const dh = container.height / 100;
             const pts = [p1, p2, p3, p4].map(p => [p[0] * dw, p[1] * dh]);
-            
             const tx = pts[0][0], ty = pts[0][1];
             const sx = (pts[1][0] - pts[0][0]) / w;
             const sy = (pts[2][1] - pts[0][1]) / h;
@@ -67,58 +67,35 @@
             return `matrix(${sx}, ${skewX}, ${skewY}, ${sy}, ${tx}, ${ty})`;
         }
 
-        // 自動換行與縮放核心
-        function wrapText(text, maxWidth) {
-            let fontSize = 80; // 初始最大字級
-            ctx.font = `bold ${fontSize}px sans-serif`;
-            
-            let lines = [];
-            let words = text.split('');
-            let line = '';
-
-            const rebuildLines = (size) => {
-                ctx.font = `bold ${size}px sans-serif`;
-                let tempLines = [];
-                let currentLine = '';
-                for(let n = 0; n < words.length; n++) {
-                    let testLine = currentLine + words[n];
-                    if (ctx.measureText(testLine).width > maxWidth && n > 0) {
-                        tempLines.push(currentLine);
-                        currentLine = words[n];
-                    } else {
-                        currentLine = testLine;
-                    }
-                }
-                tempLines.push(currentLine);
-                return tempLines;
-            };
-
-            lines = rebuildLines(fontSize);
-            // 如果行數太多導致高度溢出，自動縮小字級
-            while (lines.length * fontSize > 240 && fontSize > 20) {
-                fontSize -= 5;
-                lines = rebuildLines(fontSize);
-            }
-            return { lines, fontSize };
-        }
-
-        function draw(text) {
+        function wrapAndDrawText(text) {
             canvas.width = 400; canvas.height = 300;
             ctx.clearRect(0, 0, 400, 300);
             
-            const padding = 40;
-            const { lines, fontSize } = wrapText(text, 320);
-            
+            let fontSize = 80;
+            let maxWidth = 320;
+            let words = text.split('');
+            let lines = [];
+
+            const getLines = (size) => {
+                ctx.font = `bold ${size}px sans-serif`;
+                let res = [], curr = '';
+                for(let char of words) {
+                    if(ctx.measureText(curr + char).width > maxWidth) { res.push(curr); curr = char; }
+                    else { curr += char; }
+                }
+                res.push(curr); return res;
+            };
+
+            lines = getLines(fontSize);
+            while(lines.length * fontSize > 240 && fontSize > 20) {
+                fontSize -= 5; lines = getLines(fontSize);
+            }
+
             ctx.fillStyle = "white";
             ctx.textAlign = "center";
             ctx.textBaseline = "middle";
-            
-            const totalHeight = lines.length * fontSize;
-            const startY = (300 - totalHeight) / 2 + fontSize / 2;
-
-            lines.forEach((line, i) => {
-                ctx.fillText(line, 200, startY + (i * fontSize));
-            });
+            const startY = (300 - (lines.length * fontSize)) / 2 + fontSize / 2;
+            lines.forEach((l, i) => ctx.fillText(l, 200, startY + (i * fontSize)));
         }
 
         function sync() {
@@ -140,7 +117,7 @@
         }
 
         function startSync() {
-            draw(input.value || "這是一個自動換行的測試範例");
+            wrapAndDrawText(input.value || "這是在 3.11 秒出現的測試文字");
             video.currentTime = 0; video.play();
             requestAnimationFrame(sync);
         }
