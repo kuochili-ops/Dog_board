@@ -3,121 +3,130 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Blackboard Texture Sync</title>
+    <title>Inverse Tracking Module</title>
     <style>
-        body { background: #000; color: #fff; margin: 0; display: flex; flex-direction: column; align-items: center; }
-        .stage { position: relative; width: 100%; max-width: 800px; perspective: 1500px; }
-        video { width: 100%; display: block; }
+        :root {
+            --flip-delay: 1.1s; /* 影片中狗狗開始叼起的精確時間 */
+            --flip-duration: 1.8s; /* 翻轉完成的歷時 */
+        }
 
-        /* 文字圖形層 */
-        #textSticker {
+        body { background: #000; color: #fff; margin: 0; display: flex; flex-direction: column; align-items: center; font-family: sans-serif; }
+        
+        .container {
+            position: relative;
+            width: 100%;
+            max-width: 800px;
+            /* 模擬影片拍攝的透視距離 */
+            perspective: 1200px; 
+            overflow: hidden;
+        }
+
+        video { width: 100%; display: block; z-index: 1; }
+
+        /* 文字圖形層：透明底、尺寸與黑板一致 */
+        #textCanvas {
             position: absolute;
-            /* 定位到黑板在影片中的最終中心範圍 */
-            top: 54.5%; 
+            /* 定位於黑板翻起後的最終中心位置 */
+            top: 54%; 
             left: 55%;
             width: 32%; 
             height: 42%;
             
-            pointer-events: none;
             z-index: 10;
+            pointer-events: none;
             
-            /* 關鍵：旋轉軸心固定在黑板上緣（吊繩處） */
+            /* 關鍵：設置旋轉軸心在黑板頂部支點 */
             transform-origin: center top; 
             
-            /* 初始狀態：背對觀眾 (180度) 或水平 (-90度) */
-            transform: translate(-50%, 0%) rotateX(-105deg);
-            opacity: 0;
-            
-            /* 修正渲染品質 */
-            backface-visibility: hidden;
+            /* 修正手機渲染與背面隱藏 */
             -webkit-backface-visibility: hidden;
-            will-change: transform, opacity;
+            backface-visibility: hidden;
+            transform-style: preserve-3d;
+            
+            /* 初始狀態：完全水平平放，透明度為 0 */
+            transform: translate(-50%, 0%) rotateX(-90deg);
+            opacity: 0;
         }
 
-        /* 逆向工程：手動對齊 dog_board.mp4 的運動軌跡 */
-        @keyframes preciseStickerFlip {
+        /* 逆向紀錄動畫：從水平到垂直 */
+        @keyframes reverseFlipSync {
             0% {
                 opacity: 0;
-                transform: translate(-50%, -5%) rotateX(-105deg) rotateY(20deg) scale(0.85);
+                /* 起始：水平躺在桌面上 */
+                transform: translate(-50%, -5%) rotateX(-90deg) rotateY(20deg) scale(0.85);
             }
-            /* 1.5s: 黑板翻到一半，文字開始受光顯現 */
-            45% {
+            30% {
+                /* 剛叼起，文字開始隨角度顯現 */
                 opacity: 1;
-                transform: translate(-51%, -3%) rotateX(-75deg) rotateY(18deg) rotateZ(-3deg) scale(0.95);
+                transform: translate(-51%, -4%) rotateX(-65deg) rotateY(18deg) rotateZ(-3deg) scale(0.92);
             }
-            /* 2.2s: 翻轉接近垂直，模擬叼起的慣性抖動 */
-            75% {
+            70% {
+                /* 接近翻正，模擬動量 */
                 opacity: 1;
-                transform: translate(-53%, -2%) rotateX(-15deg) rotateY(12deg) rotateZ(-1deg) scale(1.05);
+                transform: translate(-53%, -2%) rotateX(-20deg) rotateY(14deg) rotateZ(-1deg) scale(1.05);
             }
-            /* 2.8s: 最終畫面校準 (左高右低透視) */
             100% {
+                /* 最終狀態：對齊影片最後一幀的黑板形狀 */
                 opacity: 1;
-                /* 最終角度：微調 Y 軸與 Z 軸以完全貼合黑板平面 */
-                transform: translate(-53.5%, 0%) rotateX(0deg) rotateY(14deg) rotateZ(0deg) scale(1.1);
+                transform: translate(-53.5%, 0%) rotateX(0deg) rotateY(13deg) rotateZ(0deg) scale(1.1);
             }
         }
 
-        .active {
-            animation: preciseStickerFlip 3.5s linear forwards;
+        .run-sync {
+            animation: reverseFlipSync var(--flip-duration) linear forwards;
+            animation-delay: var(--flip-delay);
         }
 
-        .ui { padding: 20px; width: 100%; max-width: 400px; }
-        input { width: 100%; padding: 15px; margin-bottom: 10px; border-radius: 8px; border: none; font-size: 16px; background: #222; color: #fff; }
-        button { width: 100%; padding: 15px; background: #FFD700; color: #000; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; }
+        .ui-panel { padding: 20px; width: 100%; max-width: 400px; display: flex; flex-direction: column; gap: 10px; }
+        input { padding: 15px; background: #222; border: 1px solid #444; color: white; border-radius: 8px; font-size: 16px; }
+        button { padding: 15px; background: #f1c40f; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; color: #000; }
     </style>
 </head>
 <body>
 
-    <div class="stage">
-        <video id="v" playsinline webkit-playsinline muted>
+    <div class="container">
+        <video id="dogVid" playsinline webkit-playsinline muted>
             <source src="dog_board.mp4" type="video/mp4">
         </video>
-        <canvas id="textSticker"></canvas>
+        <canvas id="textCanvas"></canvas>
     </div>
 
-    <div class="ui">
-        <input type="text" id="userInput" placeholder="輸入要刻在黑板的話...">
-        <button onclick="applyTextureSync()">執行同步翻轉</button>
+    <div class="ui-panel">
+        <input type="text" id="userInput" placeholder="輸入要顯示的字...">
+        <button onclick="startSync()">執行同步加註</button>
     </div>
 
     <script>
-        const canvas = document.getElementById('textSticker');
+        const canvas = document.getElementById('textCanvas');
         const ctx = canvas.getContext('2d');
-        const video = document.getElementById('v');
-        const input = document.getElementById('userInput');
+        const v = document.getElementById('dogVid');
+        const i = document.getElementById('userInput');
 
-        // 將輸入文字轉化為符合黑板尺寸的圖形
-        function drawTextTexture(text) {
-            canvas.width = 512;  // 高解析度紋理
-            canvas.height = 384;
+        // 生成白色字透明底圖形
+        function updateTextTexture(text) {
+            canvas.width = 400;
+            canvas.height = 300;
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             
-            // 繪製白色粉筆感文字
             ctx.fillStyle = "white";
-            ctx.shadowColor = "rgba(0,0,0,0.5)";
-            ctx.shadowBlur = 4;
-            ctx.font = "900 60px sans-serif"; // 粗體增強識別
+            ctx.font = "bold 44px sans-serif";
             ctx.textAlign = "center";
             ctx.textBaseline = "middle";
-            
-            // 自動斷行處理 (簡單版)
             ctx.fillText(text, canvas.width / 2, canvas.height / 2);
         }
 
-        function applyTextureSync() {
-            drawTextTexture(input.value || "這下同步了！");
+        function startSync() {
+            updateTextTexture(i.value || "這下同步了！");
             
-            // 徹底重置
-            canvas.classList.remove('active');
-            video.pause();
-            video.currentTime = 0;
+            // 狀態徹底重置
+            canvas.classList.remove('run-sync');
+            v.pause();
+            v.currentTime = 0;
             
-            void canvas.offsetWidth; // 觸發重繪
+            void canvas.offsetWidth; // 強制重繪
             
-            // 同步啟動
-            video.play();
-            canvas.classList.add('active');
+            v.play();
+            canvas.classList.add('run-sync');
         }
     </script>
 </body>
