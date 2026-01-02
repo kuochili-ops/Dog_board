@@ -3,29 +3,50 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>High-End Mesh Doggy</title>
+    <title>Fixed Mesh Doggy</title>
     <style>
         body { margin: 0; background: #1a1a1a; overflow: hidden; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; }
-        canvas { max-width: 100%; max-height: 80vh; cursor: pointer; }
-        .ui { position: fixed; bottom: 30px; display: flex; gap: 10px; z-index: 10; }
-        input { padding: 12px 20px; border-radius: 25px; border: none; width: 250px; font-size: 16px; }
-        button { padding: 12px 25px; border-radius: 25px; border: none; background: #ff4757; color: white; font-weight: bold; cursor: pointer; }
+        .canvas-container { position: relative; perspective: 1000px; }
+        canvas { max-width: 100%; max-height: 80vh; }
+        
+        /* 黑板：初始平躺在地 */
+        .pendant {
+            position: absolute; top: 42%; left: 50%;
+            transform-origin: top center;
+            transform: translateX(-50%) translateY(120px) rotateX(-85deg);
+            opacity: 0; pointer-events: none;
+            transition: transform 1.2s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.5s;
+        }
+        .pendant.active { transform: translateX(-50%) translateY(35px) rotateX(0deg); opacity: 1; }
+        
+        .rope { width: 30px; height: 15px; border-left: 2px solid #bda27e; border-right: 2px solid #bda27e; margin: 0 auto; }
+        .blackboard { width: 160px; min-height: 90px; background: #2c3e50; border: 4px solid #4e342e; border-radius: 6px; display: flex; justify-content: center; align-items: center; box-shadow: 0 10px 20px rgba(0,0,0,0.5); }
+        .text { color: white; font-weight: bold; padding: 10px; text-align: center; }
+
+        .ui { position: fixed; bottom: 30px; display: flex; gap: 10px; }
+        input { padding: 12px 20px; border-radius: 25px; border: none; width: 200px; }
+        button { padding: 12px 25px; border-radius: 25px; border: none; background: #ff4757; color: white; font-weight: bold; }
     </style>
 </head>
 <body>
 
-<canvas id="canvas"></canvas>
+<div class="canvas-container">
+    <canvas id="canvas"></canvas>
+    <div id="pendant" class="pendant">
+        <div class="rope"></div>
+        <div class="blackboard">
+            <div id="displayText" class="text">哈囉</div>
+        </div>
+    </div>
+</div>
 
 <div class="ui">
-    <input type="text" id="textInput" placeholder="輸入要叼起的文字...">
+    <input type="text" id="textInput" placeholder="讓狗狗銜起...">
     <button onclick="triggerAction()">送出</button>
 </div>
 
 <script>
-/**
- * 網格變形引擎模組 [cite: 2025-12-19]
- */
-class MeshEngine {
+class DogMeshEngine {
     constructor(canvas, imageSrc, rows, cols) {
         this.canvas = canvas;
         this.ctx = canvas.getContext('2d');
@@ -34,15 +55,14 @@ class MeshEngine {
         this.img = new Image();
         this.img.src = imageSrc;
         this.points = [];
-        this.isLoaded = false;
-        this.progress = 0; // 0: 平常, 1: 低頭最深處
+        this.progress = 0;
+        this.targetProgress = 0;
         
         this.img.onload = () => {
             this.canvas.width = this.img.width;
             this.canvas.height = this.img.height;
             this.initMesh();
-            this.isLoaded = true;
-            this.render();
+            this.animate();
         };
     }
 
@@ -56,55 +76,41 @@ class MeshEngine {
         }
     }
 
-    update(targetProgress) {
-        // 使用簡單緩動趨向目標進度
-        this.progress += (targetProgress - this.progress) * 0.15;
-        
-        const maxOffset = this.img.height / 3; // 設定位移為 1/3 處 [cite: 2025-12-28]
-        const expansion = 60; // 3D 外擴強度 [cite: 2025-12-28]
+    update() {
+        this.progress += (this.targetProgress - this.progress) * 0.12;
+        const maxOffset = this.img.height / 3.5;
+        const expansion = 45;
 
         this.points.forEach((p, i) => {
             const r = Math.floor(i / (this.cols + 1));
             const c = i % (this.cols + 1);
             
-            // 計算權重：上方高、下方低 [cite: 2025-12-28]
-            const weight = Math.pow(1 - (r / this.rows), 2.5);
+            // 關鍵修正：只有上半部（Row 0-12）會變形，底部固定不動 [cite: 2025-12-28]
+            const weight = r < 15 ? Math.pow(1 - (r / 15), 2.5) : 0;
             
-            // 垂直位移
             p.y = p.oy + (maxOffset * this.progress * weight);
             
-            // 水平 3D 外擴 (依據中心點偏移) [cite: 2025-12-28]
+            // 只有中間區塊會外擴，保持看板邊緣垂直 [cite: 2025-12-28]
             const centerX = this.img.width / 2;
-            const dir = p.ox < centerX ? -1 : 1;
-            const distFromCenter = Math.abs(p.ox - centerX) / centerX;
-            p.x = p.ox + (expansion * this.progress * weight * dir * distFromCenter);
+            const distFromCenter = (p.ox - centerX) / centerX;
+            p.x = p.ox + (expansion * this.progress * weight * distFromCenter);
         });
     }
 
     render() {
-        if (!this.isLoaded) return;
         this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-
         for (let r = 0; r < this.rows; r++) {
             for (let c = 0; c < this.cols; c++) {
-                this.drawTriangleSlice(r, c, true);
-                this.drawTriangleSlice(r, c, false);
+                this.drawTriangle(r, c, true);
+                this.drawTriangle(r, c, false);
             }
         }
-        requestAnimationFrame(() => this.render());
     }
 
-    drawTriangleSlice(r, c, isUpper) {
-        const i1 = r * (this.cols + 1) + c;
-        const i2 = i1 + 1;
-        const i3 = (r + 1) * (this.cols + 1) + c;
-        const i4 = i3 + 1;
-
-        const p1 = this.points[i1], p2 = this.points[i2], p3 = this.points[i3], p4 = this.points[i4];
+    drawTriangle(r, c, upper) {
+        const i1 = r * (this.cols + 1) + c, i2 = i1 + 1, i3 = (r + 1) * (this.cols + 1) + c, i4 = i3 + 1;
+        const tri = upper ? [this.points[i1], this.points[i2], this.points[i3]] : [this.points[i2], this.points[i4], this.points[i3]];
         
-        // 取得三角形三個頂點 (拆分成兩個三角形渲染)
-        const tri = isUpper ? [p1, p2, p3] : [p2, p4, p3];
-
         this.ctx.save();
         this.ctx.beginPath();
         this.ctx.moveTo(tri[0].x, tri[0].y);
@@ -113,42 +119,43 @@ class MeshEngine {
         this.ctx.closePath();
         this.ctx.clip();
 
-        // 仿射變換計算 (這部分處理圖片切片的扭曲)
         const x0 = tri[0].x, y0 = tri[0].y, x1 = tri[1].x, y1 = tri[1].y, x2 = tri[2].x, y2 = tri[2].y;
         const u0 = tri[0].ox, v0 = tri[0].oy, u1 = tri[1].ox, v1 = tri[1].oy, u2 = tri[2].ox, v2 = tri[2].oy;
-
         const det = u0 * (v1 - v2) + u1 * (v2 - v0) + u2 * (v0 - v1);
-        const a = (x0 * (v1 - v2) + x1 * (v2 - v0) + x2 * (v0 - v1)) / det;
-        const b = (y0 * (v1 - v2) + y1 * (v2 - v0) + y2 * (v0 - v1)) / det;
-        const d = (x0 * (u2 - u1) + x1 * (u0 - u2) + x2 * (u1 - u0)) / det;
-        const e = (y0 * (u2 - u1) + y1 * (u0 - u2) + y2 * (u1 - u0)) / det;
-        const f = (x0 * (u1 * v2 - u2 * v1) + x1 * (u2 * v0 - u0 * v2) + x2 * (u0 * v1 - u1 * v0)) / det;
-        const g = (y0 * (u1 * v2 - u2 * v1) + y1 * (u2 * v0 - u0 * v2) + y2 * (u0 * v1 - u1 * v0)) / det;
-
-        this.ctx.setTransform(a, b, d, e, f, g);
+        this.ctx.setTransform(
+            (x0 * (v1 - v2) + x1 * (v2 - v0) + x2 * (v0 - v1)) / det, (y0 * (v1 - v2) + y1 * (v2 - v0) + y2 * (v0 - v1)) / det,
+            (x0 * (u2 - u1) + x1 * (u0 - u2) + x2 * (u1 - u0)) / det, (y0 * (u2 - u1) + y1 * (u0 - u2) + y2 * (u1 - u0)) / det,
+            (x0 * (u1 * v2 - u2 * v1) + x1 * (u2 * v0 - u0 * v2) + x2 * (u0 * v1 - u1 * v0)) / det, (y0 * (u1 * v2 - u2 * v1) + y1 * (u2 * v0 - u0 * v2) + y2 * (u0 * v1 - u1 * v0)) / det
+        );
         this.ctx.drawImage(this.img, 0, 0);
         this.ctx.restore();
     }
+
+    animate() {
+        this.update();
+        this.render();
+        requestAnimationFrame(() => this.animate());
+    }
 }
 
-// 初始化
-const engine = new MeshEngine(document.getElementById('canvas'), 'IMG_5730.png', 20, 20);
+const engine = new DogMeshEngine(document.getElementById('canvas'), 'IMG_5730.png', 20, 20);
+const pendant = document.getElementById('pendant');
+const display = document.getElementById('displayText');
+const input = document.getElementById('textInput');
 
-let target = 0;
 function triggerAction() {
-    target = 1; // 低頭
+    if(!input.value) return;
+    display.innerText = input.value;
+    engine.targetProgress = 1; // 低頭
+    
     setTimeout(() => {
-        target = 0; // 抬頭
-    }, 1200);
+        pendant.classList.add('active'); // 翻起黑板
+        setTimeout(() => {
+            engine.targetProgress = 0; // 抬頭
+            pendant.style.transform = "translateX(-50%) translateY(0px) rotateX(0deg)";
+        }, 800);
+    }, 400);
 }
-
-// 持續更新物理進度
-function tick() {
-    engine.update(target);
-    setTimeout(tick, 16);
-}
-tick();
-
 </script>
 </body>
 </html>
