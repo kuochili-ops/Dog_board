@@ -3,25 +3,27 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>White Plate Tracking Test</title>
+    <title>Final Pro Sync</title>
     <style>
         body { background: #000; margin: 0; display: flex; flex-direction: column; align-items: center; color: white; font-family: sans-serif; }
         .stage { position: relative; width: 100%; max-width: 800px; }
         video { width: 100%; display: block; }
 
-        /* 白色測試塊：直接填滿影片容器，依賴 clip-path 變形 */
-        #whitePlate {
+        /* 文字貼圖層：模擬黑板材質 */
+        #contentLayer {
             position: absolute;
             top: 0; left: 0; width: 100%; height: 100%;
             z-index: 10;
             pointer-events: none;
-            background: rgba(255, 255, 255, 0.8); /* 80% 不透明白，方便看透後方的黑板 */
+            /* 背景設為黑板色或透明，這裡建議透明，讓文字直接浮在影片黑板上 */
+            background: rgba(0, 0, 0, 0); 
             opacity: 0;
             will-change: clip-path, opacity;
         }
 
-        .controls { padding: 20px; }
-        button { padding: 15px 30px; background: #fff; color: #000; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; }
+        .ui { padding: 20px; width: 90%; max-width: 400px; text-align: center; }
+        input { width: 100%; padding: 12px; margin-bottom: 10px; border-radius: 8px; border: none; background: #222; color: #fff; }
+        button { width: 100%; padding: 12px; background: #f1c40f; color: #000; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; }
     </style>
 </head>
 <body>
@@ -30,18 +32,21 @@
         <video id="v" playsinline muted>
             <source src="dog_board.mp4" type="video/mp4">
         </video>
-        <div id="whitePlate"></div>
+        <canvas id="contentLayer"></canvas>
     </div>
 
-    <div class="controls">
-        <button onclick="startTest()">開始對位測試</button>
+    <div class="ui">
+        <input type="text" id="userInput" placeholder="輸入要顯示的文字...">
+        <button onclick="startSync()">執行最終同步</button>
     </div>
 
     <script>
         const video = document.getElementById('v');
-        const plate = document.getElementById('whitePlate');
+        const canvas = document.getElementById('contentLayer');
+        const ctx = canvas.getContext('2d');
+        const input = document.getElementById('userInput');
 
-        // 使用你提供的四組關鍵幀數據
+        // 完全採用你提供的四組座標數據
         const keyframes = [
             { t: 0.00, lt: [50, 90], rt: [50, 90], lb: [50, 90], rb: [50, 90], op: 0 },
             { t: 2.57, lt: [57.18, 65.03], rt: [72.93, 73.36], lb: [40.56, 71.44], rb: [55.44, 79.34], op: 1 },
@@ -54,7 +59,7 @@
             return (1 - amt) * start + amt * end;
         }
 
-        function update() {
+        function syncEngine() {
             const now = video.currentTime;
             let i = 0;
             while (i < keyframes.length - 1 && keyframes[i+1].t < now) i++;
@@ -62,25 +67,42 @@
             const k1 = keyframes[i];
             const k2 = keyframes[i+1] || k1;
             
-            const progress = (now - k1.t) / (k2.t - k1.t || 1);
-            
-            // 使用你的原始點位進行線性插值
+            // 修正：使用線性插值 (1:1 對齊時間軸)，解決慢半拍問題
+            const progress = (k2.t - k1.t) > 0 ? (now - k1.t) / (k2.t - k1.t) : 1;
+
             const lt = [lerp(k1.lt[0], k2.lt[0], progress), lerp(k1.lt[1], k2.lt[1], progress)];
             const rt = [lerp(k1.rt[0], k2.rt[0], progress), lerp(k1.rt[1], k2.rt[1], progress)];
             const lb = [lerp(k1.lb[0], k2.lb[0], progress), lerp(k1.lb[1], k2.lb[1], progress)];
             const rb = [lerp(k1.rb[0], k2.rb[0], progress), lerp(k1.rb[1], k2.rb[1], progress)];
 
-            plate.style.opacity = lerp(k1.op, k2.op, progress);
-            // 核心：直接將白色區塊的四個頂點對準你點擊的座標
-            plate.style.clipPath = `polygon(${lt[0]}% ${lt[1]}%, ${rt[0]}% ${rt[1]}%, ${rb[0]}% ${rb[1]}%, ${lb[0]}% ${lb[1]}%)`;
+            canvas.style.opacity = lerp(k1.op, k2.op, progress);
+            canvas.style.clipPath = `polygon(${lt[0]}% ${lt[1]}%, ${rt[0]}% ${rt[1]}%, ${rb[0]}% ${rb[1]}%, ${lb[0]}% ${lb[1]}%)`;
 
-            if (!video.paused && !video.ended) requestAnimationFrame(update);
+            if (!video.paused && !video.ended) requestAnimationFrame(syncEngine);
         }
 
-        function startTest() {
+        function drawContent(text) {
+            // 解析度設為 2 倍以獲得清晰文字
+            canvas.width = canvas.clientWidth * 2;
+            canvas.height = canvas.clientHeight * 2;
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // 繪製文字
+            ctx.fillStyle = "white";
+            ctx.font = "900 120px sans-serif";
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+            
+            // 將文字繪製在 Canvas 的中央區域 (Canvas 由於 clip-path 只會顯示在黑板內)
+            // 這裡微調了中心偏移，以配合黑板在畫面中的大約位置
+            ctx.fillText(text, canvas.width * 0.52, canvas.height * 0.60);
+        }
+
+        function startSync() {
+            drawContent(input.value || "同步成功");
             video.currentTime = 0;
             video.play();
-            requestAnimationFrame(update);
+            requestAnimationFrame(syncEngine);
         }
     </script>
 </body>
