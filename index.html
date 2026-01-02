@@ -3,22 +3,22 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Final Pro Sync</title>
+    <title>Perfect Text Wrap</title>
     <style>
-        body { background: #000; margin: 0; display: flex; flex-direction: column; align-items: center; color: white; font-family: sans-serif; }
+        body { background: #000; margin: 0; display: flex; flex-direction: column; align-items: center; color: white; font-family: sans-serif; overflow: hidden; }
         .stage { position: relative; width: 100%; max-width: 800px; }
         video { width: 100%; display: block; }
 
-        /* 文字貼圖層：模擬黑板材質 */
-        #contentLayer {
+        /* 文字畫布：使用 transform-origin 左上角作為變形基點 */
+        #textLayer {
             position: absolute;
-            top: 0; left: 0; width: 100%; height: 100%;
+            top: 0; left: 0;
+            width: 400px; height: 300px; /* 固定原始尺寸，再透過變換拉伸 */
             z-index: 10;
             pointer-events: none;
-            /* 背景設為黑板色或透明，這裡建議透明，讓文字直接浮在影片黑板上 */
-            background: rgba(0, 0, 0, 0); 
+            will-change: transform, opacity;
+            transform-origin: 0 0;
             opacity: 0;
-            will-change: clip-path, opacity;
         }
 
         .ui { padding: 20px; width: 90%; max-width: 400px; text-align: center; }
@@ -32,21 +32,21 @@
         <video id="v" playsinline muted>
             <source src="dog_board.mp4" type="video/mp4">
         </video>
-        <canvas id="contentLayer"></canvas>
+        <canvas id="textLayer"></canvas>
     </div>
 
     <div class="ui">
-        <input type="text" id="userInput" placeholder="輸入要顯示的文字...">
-        <button onclick="startSync()">執行最終同步</button>
+        <input type="text" id="userInput" placeholder="輸入文字...">
+        <button onclick="startSync()">啟動變形貼合</button>
     </div>
 
     <script>
         const video = document.getElementById('v');
-        const canvas = document.getElementById('contentLayer');
+        const canvas = document.getElementById('textLayer');
         const ctx = canvas.getContext('2d');
         const input = document.getElementById('userInput');
 
-        // 完全採用你提供的四組座標數據
+        // 使用你提供的四組精確座標
         const keyframes = [
             { t: 0.00, lt: [50, 90], rt: [50, 90], lb: [50, 90], rb: [50, 90], op: 0 },
             { t: 2.57, lt: [57.18, 65.03], rt: [72.93, 73.36], lb: [40.56, 71.44], rb: [55.44, 79.34], op: 1 },
@@ -55,54 +55,61 @@
             { t: 3.95, lt: [44.03, 39.39], rt: [59.49, 51.14], lb: [43.88, 70.16], rb: [60.07, 80.41], op: 1 }
         ];
 
-        function lerp(start, end, amt) {
-            return (1 - amt) * start + amt * end;
+        function lerp(start, end, amt) { return (1 - amt) * start + amt * end; }
+
+        // 核心矩陣計算：將 [0,0, 400,0, 0,300, 400,300] 映射到指定的四個點
+        function getTransform(w, h, p1, p2, p3, p4) {
+            const container = video.getBoundingClientRect();
+            const dw = container.width / 100;
+            const dh = container.height / 100;
+
+            // 將百分比座標轉換為像素座標
+            const pts = [p1, p2, p3, p4].map(p => [p[0] * dw, p[1] * dh]);
+            
+            // 此處使用簡化版 2D 仿射變換，確保文字在四點中縮放與旋轉
+            const tx = pts[0][0];
+            const ty = pts[0][1];
+            const sx = (pts[1][0] - pts[0][0]) / w;
+            const sy = (pts[2][1] - pts[0][1]) / h;
+            const skewX = (pts[1][1] - pts[0][1]) / w;
+            const skewY = (pts[2][0] - pts[0][0]) / h;
+
+            return `matrix(${sx}, ${skewX}, ${skewY}, ${sy}, ${tx}, ${ty})`;
         }
 
-        function syncEngine() {
+        function sync() {
             const now = video.currentTime;
             let i = 0;
             while (i < keyframes.length - 1 && keyframes[i+1].t < now) i++;
-
             const k1 = keyframes[i];
             const k2 = keyframes[i+1] || k1;
-            
-            // 修正：使用線性插值 (1:1 對齊時間軸)，解決慢半拍問題
-            const progress = (k2.t - k1.t) > 0 ? (now - k1.t) / (k2.t - k1.t) : 1;
+            const p = (now - k1.t) / (k2.t - k1.t || 1);
 
-            const lt = [lerp(k1.lt[0], k2.lt[0], progress), lerp(k1.lt[1], k2.lt[1], progress)];
-            const rt = [lerp(k1.rt[0], k2.rt[0], progress), lerp(k1.rt[1], k2.rt[1], progress)];
-            const lb = [lerp(k1.lb[0], k2.lb[0], progress), lerp(k1.lb[1], k2.lb[1], progress)];
-            const rb = [lerp(k1.rb[0], k2.rb[0], progress), lerp(k1.rb[1], k2.rb[1], progress)];
+            const lt = [lerp(k1.lt[0], k2.lt[0], p), lerp(k1.lt[1], k2.lt[1], p)];
+            const rt = [lerp(k1.rt[0], k2.rt[0], p), lerp(k1.rt[1], k2.rt[1], p)];
+            const lb = [lerp(k1.lb[0], k2.lb[0], p), lerp(k1.lb[1], k2.lb[1], p)];
+            const rb = [lerp(k1.rb[0], k2.rb[0], p), lerp(k1.rb[1], k2.rb[1], p)];
 
-            canvas.style.opacity = lerp(k1.op, k2.op, progress);
-            canvas.style.clipPath = `polygon(${lt[0]}% ${lt[1]}%, ${rt[0]}% ${rt[1]}%, ${rb[0]}% ${rb[1]}%, ${lb[0]}% ${lb[1]}%)`;
+            canvas.style.opacity = lerp(k1.op, k2.op, p);
+            canvas.style.transform = getTransform(400, 300, lt, rt, lb, rb);
 
-            if (!video.paused && !video.ended) requestAnimationFrame(syncEngine);
+            if (!video.paused && !video.ended) requestAnimationFrame(sync);
         }
 
-        function drawContent(text) {
-            // 解析度設為 2 倍以獲得清晰文字
-            canvas.width = canvas.clientWidth * 2;
-            canvas.height = canvas.clientHeight * 2;
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            
-            // 繪製文字
+        function draw(text) {
+            canvas.width = 400; canvas.height = 300;
+            ctx.clearRect(0, 0, 400, 300);
             ctx.fillStyle = "white";
-            ctx.font = "900 120px sans-serif";
+            ctx.font = "bold 60px sans-serif";
             ctx.textAlign = "center";
             ctx.textBaseline = "middle";
-            
-            // 將文字繪製在 Canvas 的中央區域 (Canvas 由於 clip-path 只會顯示在黑板內)
-            // 這裡微調了中心偏移，以配合黑板在畫面中的大約位置
-            ctx.fillText(text, canvas.width * 0.52, canvas.height * 0.60);
+            ctx.fillText(text, 200, 150);
         }
 
         function startSync() {
-            drawContent(input.value || "同步成功");
-            video.currentTime = 0;
-            video.play();
-            requestAnimationFrame(syncEngine);
+            draw(input.value || "對位成功");
+            video.currentTime = 0; video.play();
+            requestAnimationFrame(sync);
         }
     </script>
 </body>
