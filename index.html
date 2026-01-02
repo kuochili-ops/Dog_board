@@ -2,115 +2,94 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>AI Dog Blackboard Matrix Sync</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Blackboard Vertex Tracker</title>
     <style>
-        body { background: #000; color: #fff; margin: 0; display: flex; flex-direction: column; align-items: center; font-family: sans-serif; }
-        .stage { position: relative; width: 100%; max-width: 800px; perspective: 1200px; }
+        body { background: #111; color: white; margin: 0; display: flex; flex-direction: column; align-items: center; font-family: sans-serif; }
+        .stage { position: relative; width: 100%; max-width: 800px; overflow: hidden; }
         video { width: 100%; display: block; }
 
-        /* 文字圖形層：透明底白色字圖形 */
-        #textCanvas {
+        /* 紅點樣式 */
+        .dot {
             position: absolute;
-            /* 定位於黑板最終停止時的中心點範圍 */
-            top: 54.5%; 
-            left: 55%;
-            width: 32%; 
-            height: 42%;
-            
-            z-index: 10;
-            pointer-events: none;
-            
-            /* 關鍵修正：旋轉軸心必須鎖死在頂部，對齊吊繩位置 */
-            transform-origin: center top; 
-            
-            /* 修正手機渲染與背面隱藏 */
-            -webkit-backface-visibility: hidden;
-            backface-visibility: hidden;
-            transform-style: preserve-3d;
-            
-            /* 初始狀態：完全倒貼在背面 */
-            transform: translate(-50%, 0%) rotateX(-90deg);
+            width: 8px;
+            height: 8px;
+            background: red;
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 100;
+            box-shadow: 0 0 10px red;
             opacity: 0;
-            will-change: transform, opacity;
+            pointer-events: none;
         }
 
-        /* 根據影片逐幀紀錄的運動軌跡 */
-        @keyframes preciseFlip {
-            0% {
-                opacity: 0;
-                transform: translate(-50%, -5%) rotateX(-90deg) rotateY(15deg);
-            }
-            /* 1.5s: 剛叼過 90 度，文字瞬間顯現 */
-            45% {
-                opacity: 1;
-                transform: translate(-51.5%, -3%) rotateX(-65deg) rotateY(18deg) rotateZ(-3deg) scale(0.95);
-            }
-            /* 2.2s: 接近翻正，模擬向心力導致的位移 */
-            80% {
-                opacity: 1;
-                transform: translate(-53%, -1%) rotateX(-15deg) rotateY(14deg) rotateZ(-1deg) scale(1.05);
-            }
-            /* 2.8s: 最終定格位置 (對應影片最後一幀的梯形位置) */
-            100% {
-                opacity: 1;
-                transform: translate(-53.5%, 0%) rotateX(0deg) rotateY(13.5deg) rotateZ(0deg) scale(1.1);
-            }
+        /* 追蹤動畫：針對 dog_board.mp4 的四個角進行逆向紀錄 */
+        /* 我們以影片寬高百分比來定位 */
+
+        /* 左上角 (支點) */
+        @keyframes track-lt {
+            0% { opacity: 0; top: 48%; left: 45%; }
+            40% { opacity: 1; top: 44%; left: 42%; }
+            100% { opacity: 1; top: 34%; left: 41%; }
+        }
+        /* 右上角 */
+        @keyframes track-rt {
+            0% { opacity: 0; top: 48%; left: 55%; }
+            40% { opacity: 1; top: 44%; left: 63%; }
+            100% { opacity: 1; top: 38%; left: 71%; }
+        }
+        /* 左下角 */
+        @keyframes track-lb {
+            0% { opacity: 0; top: 48%; left: 45%; }
+            40% { opacity: 1; top: 58%; left: 38%; }
+            100% { opacity: 1; top: 76%; left: 38%; }
+        }
+        /* 右下角 */
+        @keyframes track-rb {
+            0% { opacity: 0; top: 48%; left: 55%; }
+            40% { opacity: 1; top: 58%; left: 68%; }
+            100% { opacity: 1; top: 72%; left: 73%; }
         }
 
-        .active {
-            animation: preciseFlip 3.5s linear forwards;
-        }
+        .active #dot-lt { animation: track-lt 3.5s linear forwards; }
+        .active #dot-rt { animation: track-rt 3.5s linear forwards; }
+        .active #dot-lb { animation: track-lb 3.5s linear forwards; }
+        .active #dot-rb { animation: track-rb 3.5s linear forwards; }
 
-        .ui { padding: 20px; width: 100%; max-width: 400px; }
-        input { width: 100%; padding: 12px; margin-bottom: 10px; border-radius: 8px; border: none; font-size: 16px; background: #222; color: #fff; }
-        button { width: 100%; padding: 12px; background: #FFD700; color: #000; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; }
+        .controls { padding: 20px; }
+        button { padding: 12px 24px; background: #ff4757; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; }
     </style>
 </head>
 <body>
 
-    <div class="stage">
+    <div id="wrapper" class="stage">
         <video id="v" playsinline webkit-playsinline muted>
             <source src="dog_board.mp4" type="video/mp4">
         </video>
-        <canvas id="textCanvas"></canvas>
+        
+        <div id="dot-lt" class="dot"></div>
+        <div id="dot-rt" class="dot"></div>
+        <div id="dot-lb" class="dot"></div>
+        <div id="dot-rb" class="dot"></div>
     </div>
 
-    <div class="ui">
-        <input type="text" id="userInput" placeholder="輸入要寫在黑板上的話...">
-        <button onclick="run()">同步加註</button>
+    <div class="controls">
+        <button onclick="startTracking()">播放並觀察紅點軌跡</button>
     </div>
 
     <script>
-        const canvas = document.getElementById('textCanvas');
-        const ctx = canvas.getContext('2d');
-        const video = document.getElementById('v');
-        const input = document.getElementById('userInput');
+        const v = document.getElementById('v');
+        const w = document.getElementById('wrapper');
 
-        function generateTexture(text) {
-            // 繪製白色透明底圖形
-            canvas.width = 512;
-            canvas.height = 384;
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
+        function startTracking() {
+            w.classList.remove('active');
+            v.pause();
+            v.currentTime = 0;
             
-            ctx.fillStyle = "white";
-            ctx.font = "bold 60px sans-serif";
-            ctx.textAlign = "center";
-            ctx.textBaseline = "middle";
-            ctx.fillText(text, canvas.width / 2, canvas.height / 2);
-        }
-
-        function run() {
-            generateTexture(input.value || "這下對齊了！");
+            void w.offsetWidth; // 觸發重繪
             
-            canvas.classList.remove('active');
-            video.pause();
-            video.currentTime = 0;
-            
-            void canvas.offsetWidth; 
-            
-            video.play();
-            canvas.classList.add('active');
+            v.play();
+            w.classList.add('active');
         }
     </script>
 </body>
