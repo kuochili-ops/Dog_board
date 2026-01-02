@@ -3,10 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>High-Speed Tracking Sync</title>
+    <title>Blackboard Message App</title>
     <style>
-        body { background: #000; margin: 0; display: flex; flex-direction: column; align-items: center; color: white; font-family: "Arial Black", sans-serif; overflow: hidden; }
-        .stage { position: relative; width: 100%; max-width: 800px; perspective: 1000px; }
+        body { background: #000; margin: 0; display: flex; flex-direction: column; align-items: center; color: white; font-family: "Arial Black", "Microsoft JhengHei", sans-serif; overflow: hidden; }
+        .stage { position: relative; width: 100%; max-width: 800px; }
         video { width: 100%; display: block; }
         #textLayer {
             position: absolute;
@@ -18,23 +18,40 @@
             transform-origin: 0 0;
             opacity: 0;
         }
-        .ui { padding: 20px; width: 90%; max-width: 400px; text-align: center; }
-        textarea { width: 100%; padding: 12px; margin-bottom: 10px; border-radius: 8px; border: none; background: #222; color: #fff; height: 80px; text-align: center; font-size: 16px; }
-        button { width: 100%; padding: 15px; background: #f1c40f; color: #000; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; }
+        
+        /* 介面控制層 */
+        .admin-ui { padding: 20px; width: 90%; max-width: 450px; text-align: center; background: #1a1a1a; border-radius: 0 0 20px 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        .is-viewer .admin-ui { display: none; } /* 收訊者模式下隱藏 */
+
+        textarea { width: 100%; padding: 12px; margin-bottom: 10px; border-radius: 8px; border: 1px solid #333; background: #222; color: #fff; height: 80px; text-align: center; font-size: 18px; box-sizing: border-box; }
+        .btn-group { display: flex; gap: 10px; }
+        button { flex: 1; padding: 15px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; transition: 0.2s; }
+        .btn-run { background: #f1c40f; color: #000; }
+        .btn-share { background: #3498db; color: #fff; }
+        button:active { transform: scale(0.95); }
+        
+        /* 全螢幕播放提示 (僅收訊者) */
+        #tapToPlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 100; display: none; background: rgba(0,0,0,0.6); align-items: center; justify-content: center; cursor: pointer; }
+        .is-viewer #tapToPlay { display: flex; }
     </style>
 </head>
-<body>
+<body class="admin-mode">
 
     <div class="stage">
         <video id="v" playsinline muted>
             <source src="dog_board.mp4" type="video/mp4">
         </video>
         <canvas id="textLayer"></canvas>
+        <div id="tapToPlay"><span>點擊螢幕觀看驚喜訊息</span></div>
     </div>
 
-    <div class="ui">
-        <textarea id="userInput">2026 新年快樂</textarea>
-        <button onclick="startSync()">啟動極速同步</button>
+    <div class="admin-ui">
+        <textarea id="userInput">Minnie 2026
+新年快樂</textarea>
+        <div class="btn-group">
+            <button class="btn-run" onclick="startSync()">預覽效果</button>
+            <button class="btn-share" onclick="shareMessage()">分享給好友</button>
+        </div>
     </div>
 
     <script>
@@ -43,16 +60,31 @@
         const ctx = canvas.getContext('2d');
         const input = document.getElementById('userInput');
 
-        // 優化後的時間點位，增加 3.25s 的預測點以補償加速感
+        // 核心座標數據 (已包含物理加速補償)
         const keyframes = [
             { t: 0.00, lt: [50, 90], rt: [50, 90], lb: [50, 90], rb: [50, 90], op: 0 },
             { t: 3.10, lt: [57.18, 65.03], rt: [72.93, 73.36], lb: [40.56, 71.44], rb: [55.44, 79.34], op: 0 },
             { t: 3.11, lt: [57.18, 65.03], rt: [72.93, 73.36], lb: [40.56, 71.44], rb: [55.44, 79.34], op: 1 },
-            // 新增一個插值補償點 (約 3.25s)，加速翻轉
             { t: 3.25, lt: [53.13, 50.50], rt: [69.10, 60.91], lb: [42.22, 69.73], rb: [57.75, 78.68], op: 1 },
             { t: 3.42, lt: [49.08, 35.97], rt: [65.27, 48.36], lb: [43.88, 68.45], rb: [60.07, 78.92], op: 1 },
             { t: 3.95, lt: [44.03, 39.39], rt: [59.49, 51.14], lb: [43.88, 70.16], rb: [60.07, 80.41], op: 1 }
         ];
+
+        // 初始化檢查 URL 參數
+        window.onload = () => {
+            const params = new URLSearchParams(window.location.search);
+            const sharedText = params.get('text');
+            if (sharedText) {
+                document.body.className = 'is-viewer';
+                input.value = sharedText;
+                // 由於瀏覽器政策，需使用者點擊後才能播放（ tapToPlay 處理）
+                document.getElementById('tapToPlay').onclick = () => {
+                    document.getElementById('tapToPlay').style.display = 'none';
+                    video.muted = false; // 嘗試解除靜音
+                    startSync();
+                };
+            }
+        };
 
         function lerp(start, end, amt) { return (1 - amt) * start + amt * end; }
 
@@ -68,25 +100,18 @@
             return `matrix(${sx}, ${skewX}, ${skewY}, ${sy}, ${tx}, ${ty})`;
         }
 
-        function draw(text) {
+        function drawText(text) {
             canvas.width = 800; canvas.height = 600;
             ctx.clearRect(0, 0, 800, 600);
-            let fontSize = 110;
-            const maxWidth = 700;
+            let fontSize = 90;
             const lines = text.split('\n');
-            
             ctx.fillStyle = "white";
             ctx.textAlign = "center";
             ctx.textBaseline = "middle";
             ctx.font = `900 ${fontSize}px sans-serif`;
-            
-            const lineHeight = fontSize * 1.2;
-            const totalH = lines.length * lineHeight;
-            const startY = (600 - totalH) / 2 + lineHeight / 2;
-
-            lines.forEach((line, i) => {
-                ctx.fillText(line.trim(), 400, startY + (i * lineHeight));
-            });
+            const lineHeight = fontSize * 1.25;
+            const startY = (600 - (lines.length * lineHeight)) / 2 + lineHeight / 2;
+            lines.forEach((line, i) => ctx.fillText(line.trim(), 400, startY + (i * lineHeight)));
         }
 
         function sync() {
@@ -94,12 +119,10 @@
             let i = 0;
             while (i < keyframes.length - 1 && keyframes[i+1].t < now) i++;
             const k1 = keyframes[i], k2 = keyframes[i+1] || k1;
-            
-            // 修正：在翻轉區間(3.11-3.42)使用平滑插值增加速度感
             let p = (now - k1.t) / (k2.t - k1.t || 1);
-            if(k1.t >= 3.11 && k1.t < 3.42) {
-                p = Math.sin(p * Math.PI / 2); // 使用 Sine 曲線加速
-            }
+            
+            // 物理加速曲線 (3.11s - 3.42s)
+            if(k1.t >= 3.11 && k1.t < 3.42) p = Math.sin(p * Math.PI / 2);
 
             const lt = [lerp(k1.lt[0], k2.lt[0], p), lerp(k1.lt[1], k2.lt[1], p)];
             const rt = [lerp(k1.rt[0], k2.rt[0], p), lerp(k1.rt[1], k2.rt[1], p)];
@@ -113,9 +136,21 @@
         }
 
         function startSync() {
-            draw(input.value);
-            video.currentTime = 0; video.play();
+            drawText(input.value);
+            video.currentTime = 0;
+            video.play();
             requestAnimationFrame(sync);
+        }
+
+        function shareMessage() {
+            const text = encodeURIComponent(input.value);
+            const shareUrl = `${window.location.origin}${window.location.pathname}?text=${text}`;
+            
+            if (navigator.share) {
+                navigator.share({ title: '新年快樂', text: '送你一個新年驚喜！', url: shareUrl });
+            } else {
+                prompt('複製此連結分享給好友：', shareUrl);
+            }
         }
     </script>
 </body>
