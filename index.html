@@ -3,125 +3,162 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Dog Blackboard Inverse Sync</title>
+    <title>Dog Blackboard Precise Tracking</title>
     <style>
+        :root {
+            --video-w: 100%;
+        }
+
         body {
-            background: #000;
-            color: white;
+            background: #111;
             margin: 0;
             display: flex;
             flex-direction: column;
             align-items: center;
-            font-family: sans-serif;
+            color: white;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica;
         }
 
-        .video-stage {
+        .container {
             position: relative;
             width: 100%;
-            max-width: 800px;
-            /* 模擬相機透視 */
-            perspective: 1000px;
+            max-width: 600px;
             overflow: hidden;
+            /* 模擬攝影機焦距 */
+            perspective: 800px; 
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
         }
 
         video {
             width: 100%;
             display: block;
+            z-index: 1;
         }
 
-        /* 文字貼紙層：透明底白色字 */
-        #textSticker {
+        /* --- 核心：黑板文字模組 --- */
+        #blackboardLabel {
             position: absolute;
-            /* 定位基準點設在黑板中心大致位置 */
-            top: 52%;
-            left: 54%;
-            width: 32%;
-            height: 40%;
+            /* 逆向定位：最終狀態的黑板中心 */
+            top: 54%;
+            left: 55%;
+            width: 34%;
+            height: 44%;
             
             display: flex;
             justify-content: center;
             align-items: center;
             text-align: center;
-            color: white;
-            font-size: 1.5rem;
-            font-weight: bold;
             
-            /* 修正手機渲染：防止 z-fighting 並開啟 3D */
+            color: rgba(255, 255, 255, 0.95);
+            font-size: 1.5rem;
+            font-weight: 800;
+            line-height: 1.2;
+            
+            /* 3D 渲染優化 */
+            pointer-events: none;
+            z-index: 10;
             transform-style: preserve-3d;
             backface-visibility: hidden;
             -webkit-backface-visibility: hidden;
             
-            /* 初始狀態：完全水平且透明 */
-            transform: translate(-50%, -50%) rotateX(-90deg);
+            /* 初始狀態：黑板水平，完全不可見 */
             opacity: 0;
-            pointer-events: none;
+            transform-origin: top center;
+            transform: translate(-50%, -50%) rotateX(-100deg);
         }
 
-        /* 逆向紀錄的運動軌跡動畫 */
-        @keyframes followBoard {
-            0% { 
-                opacity: 0; 
-                transform: translate(-50%, -50%) rotateX(-90deg) scaleY(0.1); 
+        /* 根據影片逐幀紀錄的動畫 */
+        @keyframes boardTracker {
+            0% {
+                opacity: 0;
+                transform: translate(-50%, -40%) rotateX(-95deg) scale(0.8);
             }
-            /* 1.2s: 剛被叼起，角度極斜 */
-            30% { 
-                opacity: 1; 
-                transform: translate(-51%, -52%) rotateX(-70deg) rotateY(10deg) rotateZ(-2deg); 
+            /* 1.5s: 狗狗叼起一半，呈現側向梯形 */
+            45% {
+                opacity: 1;
+                transform: translate(-51%, -50%) rotateX(-60deg) rotateY(18deg) rotateZ(-3deg) scale(0.95);
             }
-            /* 2.0s: 翻轉至中間過程 */
-            60% { 
-                opacity: 1; 
-                transform: translate(-52%, -54%) rotateX(-30deg) rotateY(12deg) rotateZ(-1deg); 
+            /* 2.2s: 翻轉動力最強，產生輕微形變 */
+            75% {
+                opacity: 1;
+                transform: translate(-53%, -54%) rotateX(-15deg) rotateY(12deg) rotateZ(-1deg) scale(1.05);
             }
-            /* 2.8s: 最終畫面（逆向分析的基準點） */
-            100% { 
-                opacity: 1; 
-                /* 最終角度：微偏 Y 軸以符合影片中黑板的透視 */
-                transform: translate(-53%, -55%) rotateX(0deg) rotateY(10deg) rotateZ(0deg); 
+            /* 2.8s: 最終定格位置 (對應影片最後一幀) */
+            100% {
+                opacity: 1;
+                /* 最終黑板是左高右低的透視角度 */
+                transform: translate(-53.5%, -55%) rotateX(0deg) rotateY(12.5deg) rotateZ(0deg) scale(1.1);
             }
         }
 
-        .active-anim {
-            animation: followBoard 3.2s cubic-bezier(0.2, 0, 0.3, 1) forwards;
+        .playing {
+            animation: boardTracker 3.5s cubic-bezier(0.4, 0, 0.2, 1) forwards;
         }
 
-        .ui { padding: 20px; width: 100%; box-sizing: border-box; max-width: 400px; }
-        input { width: 100%; padding: 12px; margin-bottom: 10px; border-radius: 8px; border: none; font-size: 16px; }
-        button { width: 100%; padding: 12px; background: #fff; color: #000; border: none; border-radius: 8px; font-weight: bold; }
+        .panel {
+            width: 90%;
+            max-width: 400px;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        input {
+            padding: 15px;
+            background: #222;
+            border: 1px solid #444;
+            color: white;
+            border-radius: 8px;
+            font-size: 16px;
+        }
+
+        button {
+            padding: 15px;
+            background: #f1c40f;
+            border: none;
+            border-radius: 8px;
+            font-weight: bold;
+            font-size: 16px;
+        }
     </style>
 </head>
 <body>
 
-    <div class="video-stage">
+    <div class="container">
         <video id="dogVideo" playsinline webkit-playsinline muted>
             <source src="dog_board.mp4" type="video/mp4">
         </video>
-        <div id="textSticker"></div>
+        <div id="blackboardLabel"></div>
     </div>
 
-    <div class="ui">
-        <input type="text" id="userInput" placeholder="輸入要加註的文字...">
-        <button onclick="run()">執行同步翻轉</button>
+    <div class="panel">
+        <input type="text" id="userInput" placeholder="輸入要刻在黑板上的話...">
+        <button id="btnPlay">執行同步翻轉</button>
     </div>
 
     <script>
         const v = document.getElementById('dogVideo');
-        const s = document.getElementById('textSticker');
+        const l = document.getElementById('blackboardLabel');
         const i = document.getElementById('userInput');
+        const b = document.getElementById('btnPlay');
 
-        function run() {
-            s.innerText = i.value || "這下對了吧！";
+        b.onclick = () => {
+            l.innerText = i.value || "這下對了吧！";
             
-            // 強制重啟動畫與影片
-            s.classList.remove('active-anim');
+            // 徹底清除狀態
+            l.classList.remove('playing');
             v.pause();
             v.currentTime = 0;
             
-            void s.offsetWidth; 
+            // 強制重繪 (Reflow) 以重啟動畫
+            void l.offsetWidth; 
             
-            v.play();
-            s.classList.add('active-anim');
-        }
+            // 延遲極短時間啟動以確保同步
+            v.play().then(() => {
+                l.classList.add('playing');
+            });
+        };
     </script>
 </body>
 </html>
