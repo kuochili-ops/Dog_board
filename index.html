@@ -3,32 +3,31 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Dog Flip-Board Pro</title>
+    <title>Dog Flip-Board Pro Module</title>
     <style>
         :root {
-            --font-color: #ffffff;
-            /* 定義影片中黑板完全翻開的時間點 */
-            --flip-start: 1.5s;
-            --flip-end: 3.0s;
+            --flip-duration: 1.5s; /* 翻轉動畫時長 */
+            --start-delay: 1.0s;  /* 配合影片中狗狗開始叼起的秒數 */
         }
 
         body {
             display: flex;
             flex-direction: column;
             align-items: center;
-            background-color: #1a1a1a;
-            color: white;
-            font-family: "PingFang TC", "Microsoft JhengHei", sans-serif;
+            background: #222;
+            color: #fff;
+            font-family: sans-serif;
             margin: 0;
             padding: 20px;
         }
 
-        .video-container {
+        .stage {
             position: relative;
             width: 100%;
             max-width: 800px;
-            perspective: 1200px; /* 建立 3D 空間感 */
-            border-radius: 12px;
+            /* 關鍵：設置透視深度，讓 3D 旋轉產生近大遠小的效果 */
+            perspective: 1500px; 
+            border-radius: 10px;
             overflow: hidden;
         }
 
@@ -37,90 +36,118 @@
             display: block;
         }
 
-        /* --- 核心：隨角度變化的文字層 --- */
-        .chalkboard-text {
+        /* --- 模組化：黏貼在黑板上的文字層 --- */
+        .blackboard-text-module {
             position: absolute;
-            top: 48%; /* 根據影片黑板位置 */
+            /* 根據影片黑板位置微調 */
+            top: 50%;
             left: 55%;
             width: 32%;
-            height: 40%;
+            height: 42%;
             
             display: flex;
             justify-content: center;
             align-items: center;
-            text-align: center;
+            padding: 10px;
             box-sizing: border-box;
             
-            color: var(--font-color);
-            font-size: 1.5rem;
+            color: white;
+            font-size: 1.8rem;
+            text-align: center;
             font-weight: bold;
-            text-shadow: 1px 1px 3px rgba(0,0,0,0.7);
-            
-            /* 設置旋轉中心點在黑板頂部，模擬叼起的動作 */
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+
+            /* 關鍵：旋轉中心設在頂部，模擬吊繩支點 */
             transform-origin: top center;
             pointer-events: none;
+            
+            /* 初始狀態：平躺並透明 */
+            transform: translate(-50%, -50%) rotateX(-90deg);
             opacity: 0;
         }
 
-        /* 模擬黑板從平放到翻起的 3D 動作 */
-        @keyframes flipWithDog {
+        /* 文字隨黑板翻動的動畫關鍵影格 */
+        @keyframes boardFlipAnimation {
             0% {
                 opacity: 0;
-                transform: translate(-50%, -50%) rotateX(-90deg) rotateY(20deg);
+                transform: translate(-50%, -50%) rotateX(-90deg) rotateY(15deg);
             }
-            30% {
-                opacity: 1; /* 翻到一半時字體變清晰 */
-                transform: translate(-50%, -50%) rotateX(-60deg) rotateY(15deg);
+            20% {
+                opacity: 1;
             }
             100% {
                 opacity: 1;
-                transform: translate(-50%, -50%) rotateX(0deg) rotateY(0deg);
+                /* 最終狀態：與影片黑板同步的微偏轉角度 */
+                transform: translate(-50%, -50%) rotateX(0deg) rotateY(5deg);
             }
         }
 
-        .animate-text {
-            /* 動畫時長與影片翻牌動作同步 */
-            animation: flipWithDog 1.5s ease-out forwards;
-            animation-delay: 1.5s; /* 等待狗狗開始叼牌的時間 */
+        .is-animating {
+            animation: boardFlipAnimation var(--flip-duration) cubic-bezier(0.4, 0, 0.2, 1) forwards;
+            animation-delay: var(--start-delay);
         }
 
-        .controls { margin-top: 20px; display: flex; gap: 10px; }
-        input { padding: 12px; border-radius: 8px; border: none; width: 250px; }
-        button { padding: 12px 24px; background: #e74c3c; color: white; border: none; border-radius: 8px; cursor: pointer; }
+        .input-group {
+            margin-top: 20px;
+            display: flex;
+            gap: 10px;
+        }
+
+        input {
+            padding: 12px;
+            border-radius: 6px;
+            border: none;
+            width: 200px;
+        }
+
+        button {
+            padding: 12px 20px;
+            background: #ff4757;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+        }
     </style>
 </head>
 <body>
 
-    <div class="video-container">
-        <video id="dogVideo">
+    <div class="stage">
+        <video id="dogVid">
             <source src="dog_board.mp4" type="video/mp4">
         </video>
 
-        <div id="msgOverlay" class="chalkboard-text"></div>
+        <div id="boardMsg" class="blackboard-text-module"></div>
     </div>
 
-    <div class="controls">
-        <input type="text" id="userInput" placeholder="輸入要顯示的訊息...">
-        <button onclick="startAction()">播放翻牌效果</button>
+    <div class="input-group">
+        <input type="text" id="userInput" placeholder="輸入要寫在黑板上的字...">
+        <button onclick="playDogAction()">執行翻轉</button>
     </div>
 
     <script>
-        const video = document.getElementById('dogVideo');
-        const overlay = document.getElementById('msgOverlay');
+        /**
+         * 狗狗黑板動畫控制模組
+         */
+        const video = document.getElementById('dogVid');
+        const board = document.getElementById('boardMsg');
         const input = document.getElementById('userInput');
 
-        function startAction() {
-            // 1. 更新訊息
-            overlay.innerText = input.value || "汪！好厲害";
+        function playDogAction() {
+            // 1. 設置使用者輸入的文字
+            board.innerText = input.value || "汪汪！";
             
-            // 2. 清除舊動畫
-            overlay.classList.remove('animate-text');
-            void overlay.offsetWidth; // 強制重繪 (Reflow)
-            
-            // 3. 播放影片並觸發動畫
+            // 2. 重置影片與動畫狀態
+            board.classList.remove('is-animating');
             video.currentTime = 0;
+            
+            // 強制瀏覽器重繪，確保動畫能重新觸發
+            void board.offsetWidth; 
+            
+            // 3. 開始播放
             video.play();
-            overlay.classList.add('animate-text');
+            board.classList.add('is-animating');
         }
     </script>
 </body>
