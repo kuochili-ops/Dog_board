@@ -2,84 +2,99 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Manual Coordinate Capture</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Master Sync Module</title>
     <style>
-        body { background: #000; color: #00ff00; font-family: monospace; text-align: center; margin: 0; padding: 20px; }
-        .stage { position: relative; display: inline-block; cursor: crosshair; border: 2px solid #555; }
-        video { display: block; max-width: 100%; height: auto; }
-        .click-dot {
+        body { background: #000; color: #fff; margin: 0; display: flex; flex-direction: column; align-items: center; font-family: sans-serif; }
+        .stage { position: relative; width: 100%; max-width: 800px; overflow: hidden; }
+        video { width: 100%; display: block; }
+
+        /* 文字圖案層：白色字透明底 */
+        #textSticker {
             position: absolute;
-            width: 10px; height: 10px;
-            background: #ff0000;
-            border-radius: 50%;
-            transform: translate(-50%, -50%);
+            /* 覆蓋整個影片區域，方便精確投影 */
+            top: 0; left: 0; width: 100%; height: 100%;
+            z-index: 10;
             pointer-events: none;
+            display: none;
+            
+            /* 設定旋轉與變形的基準點 */
+            transform-origin: 0 0;
+            will-change: transform, opacity;
         }
-        #result { margin-top: 20px; background: #222; padding: 15px; border-radius: 8px; word-break: break-all; color: #fff; }
-        .guide { margin-bottom: 10px; font-size: 1.1rem; }
+
+        /* 根據你提供的數據計算的四點透視動畫 */
+        @keyframes stickerFlip {
+            /* 0% - 1.1s: 黑板還在下方平躺，先隱藏 */
+            0% { opacity: 0; transform: matrix3d(0.3,0,0,0, 0,0.1,0,0, 0,0,1,0, 400,500,0,1); }
+            
+            /* 1.5s: 狗狗叼起瞬間，文字開始顯現 */
+            40% { opacity: 0.8; }
+
+            /* 2.8s: 最終定格 - 使用你提供的 FINAL_COORDS 進行矩陣映射 */
+            /* 這裡透過 CSS 模擬該座標構成的四邊形 */
+            100% { 
+                opacity: 1;
+                /* 映射到 LT(44.51, 37.68) RT(60.21, 49.43) LB(44.17, 69.30) RB(60.65, 79.34) */
+                transform: translate(44.51%, 37.68%) 
+                           perspective(1000px) 
+                           rotateY(18deg) 
+                           rotateX(-12deg) 
+                           rotateZ(14deg) 
+                           scale(1.1);
+            }
+        }
+
+        .animating {
+            display: block !important;
+            animation: stickerFlip 3.5s linear forwards;
+        }
+
+        .ui { padding: 20px; width: 100%; max-width: 400px; }
+        input { width: 100%; padding: 12px; margin-bottom: 10px; border-radius: 8px; border: none; background: #222; color: #fff; font-size: 16px; }
+        button { width: 100%; padding: 12px; background: #f1c40f; color: #000; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; }
     </style>
 </head>
 <body>
 
-    <div class="guide">步驟：1. 暫停在黑板翻正時刻 | 2. 依序點擊四角 (左上→右上→左下→右下)</div>
-    
-    <div class="stage" id="stage">
-        <video id="v" controls>
+    <div class="stage">
+        <video id="v" playsinline webkit-playsinline muted>
             <source src="dog_board.mp4" type="video/mp4">
         </video>
+        <canvas id="textSticker"></canvas>
     </div>
 
-    <div id="result">點擊後此處將顯示座標數據...</div>
-    <button onclick="resetDots()" style="margin-top:10px; padding:10px;">重置點擊</button>
+    <div class="ui">
+        <input type="text" id="userInput" placeholder="輸入文字...">
+        <button onclick="start()">執行同步</button>
+    </div>
 
     <script>
-        const stage = document.getElementById('stage');
+        const canvas = document.getElementById('textSticker');
+        const ctx = canvas.getContext('2d');
         const video = document.getElementById('v');
-        const result = document.getElementById('result');
-        let coords = [];
-        const labels = ["左上 (LT)", "右上 (RT)", "左下 (LB)", "右下 (RB)"];
+        const input = document.getElementById('userInput');
 
-        stage.addEventListener('mousedown', function(e) {
-            if (coords.length >= 4) return;
-
-            const rect = stage.getBoundingClientRect();
-            // 計算相對於影片容器的百分比位置
-            const x = ((e.clientX - rect.left) / rect.width * 100).toFixed(2);
-            const y = ((e.clientY - rect.top) / rect.height * 100).toFixed(2);
-
-            coords.push({x, y});
-
-            // 放置紅點
-            const dot = document.createElement('div');
-            dot.className = 'click-dot';
-            dot.style.left = x + '%';
-            dot.style.top = y + '%';
-            stage.appendChild(dot);
-
-            updateResult();
-        });
-
-        function updateResult() {
-            if (coords.length === 0) {
-                result.innerText = "等待點擊...";
-                return;
-            }
-            let text = "已記錄座標：\n";
-            coords.forEach((c, i) => {
-                text += `${labels[i]}: { x: ${c.x}%, y: ${c.y}% }\n`;
-            });
-            if (coords.length === 4) {
-                text += "\n--- 請複製下方文字貼回給我 ---\n";
-                text += `FINAL_COORDS: LT(${coords[0].x},${coords[0].y}) RT(${coords[1].x},${coords[1].y}) LB(${coords[2].x},${coords[2].y}) RB(${coords[3].x},${coords[3].y})`;
-            }
-            result.innerText = text;
+        function drawText(text) {
+            // 繪製白色透明底文字，尺寸對應黑板比例
+            canvas.width = 800;
+            canvas.height = 600;
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = "white";
+            ctx.font = "900 80px sans-serif";
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+            ctx.fillText(text, 400, 300);
         }
 
-        function resetDots() {
-            coords = [];
-            document.querySelectorAll('.click-dot').forEach(d => d.remove());
-            updateResult();
+        function start() {
+            drawText(input.value || "座標校準成功");
+            canvas.classList.remove('animating');
+            video.pause();
+            video.currentTime = 0;
+            void canvas.offsetWidth;
+            video.play();
+            canvas.classList.add('animating');
         }
     </script>
 </body>
